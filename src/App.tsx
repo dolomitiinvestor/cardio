@@ -1,6 +1,7 @@
 import { useCallback, useState } from 'react';
 import Dashboard from './components/Dashboard';
 import LogForm from './components/LogForm';
+import ForecastView from './components/ForecastView';
 import ImportView from './components/ImportView';
 import HistoryList from './components/HistoryList';
 import SettingsView from './components/SettingsView';
@@ -15,11 +16,12 @@ import {
   importActivitiesJson,
 } from './lib/storage';
 
-type Tab = 'dashboard' | 'log' | 'import' | 'history' | 'settings';
+type Tab = 'dashboard' | 'log' | 'forecast' | 'import' | 'history' | 'settings';
 
 const TABS: { id: Tab; label: string; icon: string }[] = [
   { id: 'dashboard', label: 'Dashboard', icon: '📊' },
   { id: 'log', label: 'Log', icon: '➕' },
+  { id: 'forecast', label: 'Forecast', icon: '🔮' },
   { id: 'import', label: 'Import', icon: '⬆️' },
   { id: 'history', label: 'History', icon: '📋' },
   { id: 'settings', label: 'Settings', icon: '⚙️' },
@@ -69,6 +71,7 @@ export default function App() {
       <main className="flex-1 overflow-y-auto">
         {tab === 'dashboard' && <Dashboard activities={activities} />}
         {tab === 'log' && <LogForm onSave={handleSave} />}
+        {tab === 'forecast' && <ForecastView activities={activities} />}
         {tab === 'import' && <ImportView onImport={handleImport} />}
         {tab === 'history' && <HistoryList activities={activities} onDelete={handleDelete} />}
         {tab === 'settings' && (

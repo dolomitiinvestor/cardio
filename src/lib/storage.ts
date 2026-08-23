@@ -1,6 +1,12 @@
 import type { Activity, NewActivity } from './types';
 
 const STORAGE_KEY = 'cardio-tracker:activities:v1';
+const PLAN_KEY = 'cardio-tracker:plan:v1';
+
+export interface PlanEntry {
+  weekStart: string; // yyyy-MM-dd, Monday
+  miles: number;
+}
 
 function readAll(): Activity[] {
   try {
@@ -100,12 +106,53 @@ export function addActivitiesDeduped(activities: NewActivity[]): {
   return { added: toAdd, skipped };
 }
 
+// ---- Weekly plan (used by the Forecast planner) ----
+
+function readPlan(): PlanEntry[] {
+  try {
+    const raw = localStorage.getItem(PLAN_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function writePlan(plan: PlanEntry[]) {
+  localStorage.setItem(PLAN_KEY, JSON.stringify(plan));
+}
+
+export function getPlan(): PlanEntry[] {
+  return readPlan();
+}
+
+export function setPlanWeek(weekStart: string, miles: number): void {
+  const plan = readPlan().filter((p) => p.weekStart !== weekStart);
+  if (miles > 0) plan.push({ weekStart, miles });
+  writePlan(plan);
+}
+
+export function clearPlan(): void {
+  writePlan([]);
+}
+
+// ---- Backup ----
+
 export function exportActivitiesJson(): string {
-  return JSON.stringify(readAll(), null, 2);
+  return JSON.stringify({ activities: readAll(), plan: readPlan() }, null, 2);
 }
 
 export function importActivitiesJson(json: string): void {
   const parsed = JSON.parse(json);
-  if (!Array.isArray(parsed)) throw new Error('Invalid backup file');
-  writeAll(parsed);
+  if (Array.isArray(parsed)) {
+    // Legacy backup format: a plain array of activities.
+    writeAll(parsed);
+    return;
+  }
+  if (!parsed || typeof parsed !== 'object' || !Array.isArray(parsed.activities)) {
+    throw new Error('Invalid backup file');
+  }
+  writeAll(parsed.activities);
+  if (Array.isArray(parsed.plan)) writePlan(parsed.plan);
 }

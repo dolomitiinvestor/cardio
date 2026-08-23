@@ -2,15 +2,18 @@ import { useMemo, useState } from 'react';
 import type { Activity, CardioType } from '../lib/types';
 import { CARDIO_TYPES } from '../lib/types';
 import {
-  acwrZone,
+  combinedRiskStatus,
+  computeCumulativeOverload,
   computeRollingStats,
   filterByTypes,
   formatDuration,
   formatPace,
+  loadRatioZone,
   recentWeeks,
 } from '../lib/stats';
 import StatCard from './StatCard';
 import WeeklyChart from './WeeklyChart';
+import RiskBanner from './RiskBanner';
 
 interface DashboardProps {
   activities: Activity[];
@@ -29,7 +32,10 @@ export default function Dashboard({ activities }: DashboardProps) {
 
   const stats = useMemo(() => computeRollingStats(filtered), [filtered]);
   const weeks12 = useMemo(() => recentWeeks(filtered, 12), [filtered]);
-  const zone = acwrZone(stats.acwr);
+  const overload = useMemo(() => computeCumulativeOverload(filtered), [filtered]);
+  const zone = loadRatioZone(stats.acwr);
+  const overloadZone = loadRatioZone(overload.ratio);
+  const risk = combinedRiskStatus(stats.acwr, overload.ratio);
 
   const recentActivities = activities.slice(0, 8);
 
@@ -58,6 +64,14 @@ export default function Dashboard({ activities }: DashboardProps) {
         ))}
       </div>
 
+      <RiskBanner
+        label={risk.label}
+        detail={risk.detail}
+        tone={risk.tone}
+        acwr={stats.acwr}
+        cumulativeOverload={overload.ratio}
+      />
+
       <section>
         <h2 className="text-sm font-semibold text-neutral-500 dark:text-neutral-400 mb-2 uppercase tracking-wide">
           This week
@@ -84,10 +98,16 @@ export default function Dashboard({ activities }: DashboardProps) {
             }
           />
           <StatCard
-            label="ACWR (injury risk)"
+            label="ACWR (7d:28d)"
             value={stats.acwr === null ? '—' : stats.acwr.toFixed(2)}
             sublabel={zone.label}
             tone={zone.tone}
+          />
+          <StatCard
+            label="Cumulative overload (4wk:13wk)"
+            value={overload.ratio === null ? '—' : overload.ratio.toFixed(2)}
+            sublabel={overloadZone.label}
+            tone={overloadZone.tone}
           />
         </div>
       </section>

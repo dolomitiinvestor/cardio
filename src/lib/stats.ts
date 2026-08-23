@@ -240,10 +240,135 @@ export function daysSince(dateStr: string, referenceDate = new Date()): number {
 
 export const DEFAULT_MPW_TYPES = RUN_LIKE_TYPES;
 
-export function acwrZone(acwr: number | null): { label: string; tone: 'low' | 'good' | 'caution' | 'high' } {
-  if (acwr === null) return { label: 'Not enough data', tone: 'low' };
-  if (acwr < 0.8) return { label: 'Undertraining risk', tone: 'low' };
-  if (acwr <= 1.3) return { label: 'Sweet spot', tone: 'good' };
-  if (acwr <= 1.5) return { label: 'Caution', tone: 'caution' };
+export type RiskTone = 'low' | 'good' | 'caution' | 'high';
+
+/** Generic interpretation of a recent:baseline training-load ratio (used for both ACWR and cumulative overload). */
+export function loadRatioZone(ratio: number | null): { label: string; tone: RiskTone } {
+  if (ratio === null) return { label: 'Not enough data', tone: 'low' };
+  if (ratio < 0.8) return { label: 'Undertraining risk', tone: 'low' };
+  if (ratio <= 1.3) return { label: 'Sweet spot', tone: 'good' };
+  if (ratio <= 1.5) return { label: 'Caution', tone: 'caution' };
   return { label: 'High injury risk', tone: 'high' };
+}
+
+/** Back-compat alias. */
+export const acwrZone = loadRatioZone;
+
+const TONE_RANK: Record<RiskTone, number> = { low: 0, good: 1, caution: 2, high: 3 };
+
+/**
+ * Combines the short-term (ACWR) and long-term (cumulative overload) load ratios into a single
+ * overall status, taking the more concerning of the two — mirrors the "injury risk alert" shown
+ * after each run in training-load monitoring tools.
+ */
+export function combinedRiskStatus(
+  acwr: number | null,
+  cumulativeOverload: number | null,
+): { label: string; tone: RiskTone; detail: string } {
+  const acwrZ = loadRatioZone(acwr);
+  const overloadZ = loadRatioZone(cumulativeOverload);
+  const worse = TONE_RANK[overloadZ.tone] >= TONE_RANK[acwrZ.tone] ? overloadZ : acwrZ;
+
+  if (acwr === null && cumulativeOverload === null) {
+    return { label: 'Not enough data', tone: 'low', detail: 'Log a few weeks of activity to see your risk status.' };
+  }
+
+  const details: Record<RiskTone, string> = {
+    high: 'Recent load is spiking well above what your body is used to. Consider an easy week.',
+    caution: 'Load is trending up quickly. Keep an eye on it before adding more.',
+    good: 'Your recent training load is well balanced with your recent baseline.',
+    low: 'Recent load is well below your baseline — there may be room to build safely.',
+  };
+
+  return { label: worse.label, tone: worse.tone, detail: details[worse.tone] };
+}
+
+export interface CumulativeOverload {
+  recentWeeklyAvgMiles: number; // trailing 28 days, avg/week
+  baselineWeeklyAvgMiles: number; // the preceding ~9 weeks (days 29-91 back), avg/week
+  ratio: number | null;
+}
+
+/**
+ * Long-timescale companion to ACWR. ACWR's 7-day:28-day window is tuned to catch short-term
+ * spikes but is too short to reflect the slower adaptation of tendon, ligament, and bone —
+ * research on those tissues points to a timescale closer to ~3 months. This compares the last
+ * 4 weeks against the ~9 weeks before that (a rolling ~13-week / 91-day window in total).
+ */
+export function computeCumulativeOverload(
+  activities: Activity[],
+  referenceDate = new Date(),
+): CumulativeOverload {
+  const recentStart = startOfDay(subDays(referenceDate, 27));
+  const baselineStart = startOfDay(subDays(referenceDate, 90));
+  const baselineEnd = startOfDay(subDays(referenceDate, 28));
+  const end = endOfDay(referenceDate);
+
+  const recentMiles = activities
+    .filter((a) => {
+      const d = toDate(a.date);
+      return !isBefore(d, recentStart) && !isAfter(d, end);
+    })
+    .reduce((s, a) => s + a.distanceMiles, 0);
+
+  const baselineMiles = activities
+    .filter((a) => {
+      const d = toDate(a.date);
+      return !isBefore(d, baselineStart) && !isBefore(d, startOfDay(subDays(referenceDate, 91))) && isBefore(d, baselineEnd);
+    })
+    .reduce((s, a) => s + a.distanceMiles, 0);
+
+  const recentWeeklyAvgMiles = recentMiles / 4;
+  const baselineWeeklyAvgMiles = baselineMiles / 9;
+  const ratio = baselineWeeklyAvgMiles > 0 ? recentWeeklyAvgMiles / baselineWeeklyAvgMiles : null;
+
+  return { recentWeeklyAvgMiles, baselineWeeklyAvgMiles, ratio };
+}
+
+// ---- Forecast / planner ----
+
+export interface PlannedWeek {
+  weekStart: string; // yyyy-MM-dd, Monday
+  label: string;
+  miles: number;
+}
+
+/** The Monday-start weeks after the current (in-progress) week, for planning purposes. */
+export function upcomingWeekStarts(numWeeks: number, referenceDate = new Date()): { weekStart: string; label: string }[] {
+  const nextWeekStart = addWeeks(startOfWeek(referenceDate, WEEK_OPTS), 1);
+  return Array.from({ length: numWeeks }, (_, i) => {
+    const start = addWeeks(nextWeekStart, i);
+    return { weekStart: format(start, 'yyyy-MM-dd'), label: format(start, 'MMM d') };
+  });
+}
+
+/** Suggests a conservative ramp (~10%/week) from a baseline weekly mileage, capped by a target. */
+export function suggestProgression(baselineMiles: number, numWeeks: number, targetMiles?: number): number[] {
+  const growth = 1.1;
+  const plan: number[] = [];
+  let current = baselineMiles > 0 ? baselineMiles : 10;
+  for (let i = 0; i < numWeeks; i++) {
+    current = current * growth;
+    if (targetMiles !== undefined) current = Math.min(current, targetMiles);
+    plan.push(Math.round(current * 10) / 10);
+  }
+  return plan;
+}
+
+/**
+ * For a sequence of planned future weekly totals, projects the week-over-week load ratio each
+ * week would produce (that week's mileage vs. the rolling average of the 4 weeks before it,
+ * mixing in already-elapsed actual weeks as the window rolls forward) — i.e. "if I run this much,
+ * what does my risk zone look like that week?"
+ */
+export function projectPlanRisk(pastWeeksMiles: number[], plannedMiles: number[]): (number | null)[] {
+  const timeline = [...pastWeeksMiles];
+  const ratios: (number | null)[] = [];
+  for (const planned of plannedMiles) {
+    const window = timeline.slice(-4);
+    const baseline = window.length > 0 ? window.reduce((s, m) => s + m, 0) / window.length : 0;
+    ratios.push(baseline > 0 ? planned / baseline : null);
+    timeline.push(planned);
+  }
+  return ratios;
 }
