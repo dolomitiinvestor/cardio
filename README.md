@@ -37,25 +37,29 @@ npm run preview   # serve the production build locally
 
 ## Getting it on your iPhone
 
-This is a installable Progressive Web App (PWA) — it works offline and behaves like a native app
+This is an installable Progressive Web App (PWA) — it works offline and behaves like a native app
 once added to your home screen.
 
-1. Deploy the `dist/` output somewhere reachable over HTTPS (e.g. [Vercel](https://vercel.com),
-   [Netlify](https://netlify.com), [GitHub Pages](https://pages.github.com), or Cloudflare Pages —
-   all have free tiers and deploy straight from this repo).
-2. Open the deployed URL in **Safari** on your iPhone.
-3. Tap the **Share** icon → **Add to Home Screen**.
-4. Launch it from the home screen icon — it opens full-screen, no browser chrome, and keeps working
-   offline. Data stays on that device only.
+The repo auto-deploys to **GitHub Pages** on every push via `.github/workflows/deploy-pages.yml`.
+One-time setup (already done if you're reading this after that step): in the repo, go to
+**Settings → Pages → Build and deployment → Source**, and select **GitHub Actions**. After that,
+every push rebuilds and redeploys automatically — check the **Actions** tab for progress.
 
-### Quick deploy with Vercel
+Once deployed, the app is live at:
 
-```bash
-npm i -g vercel
-vercel
+```
+https://dolomitiinvestor.github.io/cardio/
 ```
 
-Or connect the GitHub repo at vercel.com/new and it will auto-detect the Vite app.
+1. Open that URL in **Safari** on your iPhone.
+2. Tap the **Share** icon → **Add to Home Screen**.
+3. Launch it from the home screen icon — it opens full-screen, no browser chrome, and keeps working
+   offline. Data stays on that device only.
+
+Prefer Vercel or Netlify instead? Both work too — connect the repo at vercel.com/new or
+app.netlify.com and they'll auto-detect the Vite app (build command `npm run build`, output `dist`).
+Note the production `base` path in `vite.config.ts` is set to `/cardio/` for GitHub Pages; on a
+platform that serves from the domain root, change it back to `/`.
 
 ## Importing from Strava
 
