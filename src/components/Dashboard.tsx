@@ -1,0 +1,180 @@
+import { useMemo, useState } from 'react';
+import type { Activity, CardioType } from '../lib/types';
+import { CARDIO_TYPES } from '../lib/types';
+import {
+  acwrZone,
+  computeRollingStats,
+  filterByTypes,
+  formatDuration,
+  formatPace,
+  recentWeeks,
+} from '../lib/stats';
+import StatCard from './StatCard';
+import WeeklyChart from './WeeklyChart';
+
+interface DashboardProps {
+  activities: Activity[];
+}
+
+type TypeFilter = 'run' | 'all' | CardioType;
+
+export default function Dashboard({ activities }: DashboardProps) {
+  const [typeFilter, setTypeFilter] = useState<TypeFilter>('run');
+
+  const filtered = useMemo(() => {
+    if (typeFilter === 'all') return activities;
+    if (typeFilter === 'run') return filterByTypes(activities, ['Run']);
+    return filterByTypes(activities, [typeFilter]);
+  }, [activities, typeFilter]);
+
+  const stats = useMemo(() => computeRollingStats(filtered), [filtered]);
+  const weeks12 = useMemo(() => recentWeeks(filtered, 12), [filtered]);
+  const zone = acwrZone(stats.acwr);
+
+  const recentActivities = activities.slice(0, 8);
+
+  if (activities.length === 0) {
+    return (
+      <div className="p-6 text-center text-neutral-500 dark:text-neutral-400">
+        <p className="text-lg font-medium mb-1">No activities yet</p>
+        <p className="text-sm">Log a workout or import from Strava to see your stats.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="p-4 flex flex-col gap-4 pb-24">
+      <div className="flex items-center gap-2 overflow-x-auto pb-1 -mx-4 px-4">
+        <FilterChip active={typeFilter === 'run'} onClick={() => setTypeFilter('run')}>
+          Run
+        </FilterChip>
+        <FilterChip active={typeFilter === 'all'} onClick={() => setTypeFilter('all')}>
+          All cardio
+        </FilterChip>
+        {CARDIO_TYPES.filter((t) => t !== 'Run').map((t) => (
+          <FilterChip key={t} active={typeFilter === t} onClick={() => setTypeFilter(t)}>
+            {t}
+          </FilterChip>
+        ))}
+      </div>
+
+      <section>
+        <h2 className="text-sm font-semibold text-neutral-500 dark:text-neutral-400 mb-2 uppercase tracking-wide">
+          This week
+        </h2>
+        <div className="grid grid-cols-2 gap-2">
+          <StatCard label="Miles this week (MPW)" value={stats.thisWeekMiles.toFixed(1)} sublabel="mi" />
+          <StatCard
+            label="4-wk avg MPW"
+            value={stats.last4WeeksAvgMiles.toFixed(1)}
+            sublabel="mi/week"
+          />
+          <StatCard
+            label="Vs. last week"
+            value={stats.weekOverWeekPct === null ? '—' : `${stats.weekOverWeekPct > 0 ? '+' : ''}${stats.weekOverWeekPct.toFixed(0)}%`}
+            sublabel={
+              stats.weekOverWeekPct !== null && Math.abs(stats.weekOverWeekPct) > 10
+                ? 'Keep increases under ~10%'
+                : undefined
+            }
+            tone={
+              stats.weekOverWeekPct !== null && stats.weekOverWeekPct > 10
+                ? 'caution'
+                : 'default'
+            }
+          />
+          <StatCard
+            label="ACWR (injury risk)"
+            value={stats.acwr === null ? '—' : stats.acwr.toFixed(2)}
+            sublabel={zone.label}
+            tone={zone.tone}
+          />
+        </div>
+      </section>
+
+      <section>
+        <h2 className="text-sm font-semibold text-neutral-500 dark:text-neutral-400 mb-2 uppercase tracking-wide">
+          Training volume
+        </h2>
+        <div className="grid grid-cols-2 gap-2">
+          <StatCard label="Longest run (4 wks)" value={`${stats.longestRunLast4Weeks.toFixed(1)} mi`} />
+          <StatCard label="Longest run (all-time)" value={`${stats.longestRunAllTime.toFixed(1)} mi`} />
+          <StatCard
+            label="Long run % of week"
+            value={stats.longRunShareOfWeekPct === null ? '—' : `${stats.longRunShareOfWeekPct.toFixed(0)}%`}
+            sublabel="Aim for ≤ 30-40%"
+          />
+          <StatCard label="Active days (4 wks)" value={`${stats.daysRunLast4Weeks}/28`} />
+        </div>
+      </section>
+
+      <section>
+        <h2 className="text-sm font-semibold text-neutral-500 dark:text-neutral-400 mb-2 uppercase tracking-wide">
+          Pace &amp; totals
+        </h2>
+        <div className="grid grid-cols-2 gap-2">
+          <StatCard label="Avg pace" value={formatPace(stats.avgPaceSecPerMile)} />
+          <StatCard label="Total time" value={formatDuration(stats.totalSecondsAllTime)} />
+          <StatCard label="This month" value={`${stats.totalMilesThisMonth.toFixed(1)} mi`} />
+          <StatCard label="This year" value={`${stats.totalMilesThisYear.toFixed(1)} mi`} />
+        </div>
+      </section>
+
+      <section>
+        <h2 className="text-sm font-semibold text-neutral-500 dark:text-neutral-400 mb-2 uppercase tracking-wide">
+          Last 12 weeks
+        </h2>
+        <div className="rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-2">
+          <WeeklyChart weeks={weeks12} />
+        </div>
+      </section>
+
+      <section>
+        <h2 className="text-sm font-semibold text-neutral-500 dark:text-neutral-400 mb-2 uppercase tracking-wide">
+          Recent activity
+        </h2>
+        <ul className="flex flex-col gap-1.5">
+          {recentActivities.map((a) => (
+            <li
+              key={a.id}
+              className="rounded-lg border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 px-3 py-2 flex items-center justify-between text-sm"
+            >
+              <div className="flex flex-col">
+                <span className="font-medium text-neutral-900 dark:text-neutral-50">
+                  {a.type} · {a.distanceMiles.toFixed(2)} mi
+                </span>
+                <span className="text-neutral-500 dark:text-neutral-400 text-xs">{a.date}</span>
+              </div>
+              <span className="text-neutral-500 dark:text-neutral-400 tabular-nums">
+                {formatDuration(a.durationSeconds)}
+              </span>
+            </li>
+          ))}
+        </ul>
+      </section>
+    </div>
+  );
+}
+
+function FilterChip({
+  active,
+  onClick,
+  children,
+}: {
+  active: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={`shrink-0 rounded-full px-3 py-1.5 text-sm font-medium border transition-colors ${
+        active
+          ? 'bg-violet-600 border-violet-600 text-white'
+          : 'bg-white dark:bg-neutral-900 border-neutral-200 dark:border-neutral-800 text-neutral-600 dark:text-neutral-300'
+      }`}
+    >
+      {children}
+    </button>
+  );
+}
