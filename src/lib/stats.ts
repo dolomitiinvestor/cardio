@@ -325,6 +325,55 @@ export function computeCumulativeOverload(
   return { recentWeeklyAvgMiles, baselineWeeklyAvgMiles, ratio };
 }
 
+export interface DailyLoadPoint {
+  date: string; // yyyy-MM-dd
+  label: string;
+  acute7MPW: number; // trailing 7-day mileage, i.e. that day's rolling "miles per week"
+  chronic28MPW: number; // trailing 28-day mileage / 4, i.e. rolling 4-week average MPW
+}
+
+/**
+ * Day-by-day (not week-bucketed) rolling training-load series: for every day in the window,
+ * the trailing 7-day mileage (already a weekly rate) and the trailing 28-day mileage averaged
+ * to a weekly rate. Plotting both together is the standard way to visualize ACWR over time,
+ * rather than only checking it as of today.
+ */
+export function dailyRollingSeries(
+  activities: Activity[],
+  numDays: number,
+  referenceDate = new Date(),
+): DailyLoadPoint[] {
+  const points: DailyLoadPoint[] = [];
+  for (let i = numDays - 1; i >= 0; i--) {
+    const day = subDays(referenceDate, i);
+    const dayEnd = endOfDay(day);
+
+    const acute7Start = startOfDay(subDays(day, 6));
+    const acute7MPW = activities
+      .filter((a) => {
+        const d = toDate(a.date);
+        return !isBefore(d, acute7Start) && !isAfter(d, dayEnd);
+      })
+      .reduce((s, a) => s + a.distanceMiles, 0);
+
+    const chronic28Start = startOfDay(subDays(day, 27));
+    const chronic28Total = activities
+      .filter((a) => {
+        const d = toDate(a.date);
+        return !isBefore(d, chronic28Start) && !isAfter(d, dayEnd);
+      })
+      .reduce((s, a) => s + a.distanceMiles, 0);
+
+    points.push({
+      date: format(day, 'yyyy-MM-dd'),
+      label: format(day, 'MMM d'),
+      acute7MPW: Math.round(acute7MPW * 10) / 10,
+      chronic28MPW: Math.round((chronic28Total / 4) * 10) / 10,
+    });
+  }
+  return points;
+}
+
 // ---- Forecast / planner ----
 
 export interface PlannedWeek {

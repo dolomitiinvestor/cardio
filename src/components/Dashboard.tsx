@@ -5,15 +5,17 @@ import {
   combinedRiskStatus,
   computeCumulativeOverload,
   computeRollingStats,
+  dailyRollingSeries,
   filterByTypes,
   formatDuration,
   formatPace,
   loadRatioZone,
-  recentWeeks,
 } from '../lib/stats';
 import StatCard from './StatCard';
-import WeeklyChart from './WeeklyChart';
+import RollingLoadChart from './RollingLoadChart';
 import RiskBanner from './RiskBanner';
+
+const CHART_DAYS = 90;
 
 interface DashboardProps {
   activities: Activity[];
@@ -31,7 +33,7 @@ export default function Dashboard({ activities }: DashboardProps) {
   }, [activities, typeFilter]);
 
   const stats = useMemo(() => computeRollingStats(filtered), [filtered]);
-  const weeks12 = useMemo(() => recentWeeks(filtered, 12), [filtered]);
+  const rollingLoad = useMemo(() => dailyRollingSeries(filtered, CHART_DAYS), [filtered]);
   const overload = useMemo(() => computeCumulativeOverload(filtered), [filtered]);
   const zone = loadRatioZone(stats.acwr);
   const overloadZone = loadRatioZone(overload.ratio);
@@ -142,10 +144,10 @@ export default function Dashboard({ activities }: DashboardProps) {
 
       <section>
         <h2 className="text-sm font-semibold text-neutral-500 dark:text-neutral-400 mb-2 uppercase tracking-wide">
-          Last 12 weeks
+          Training load (last {CHART_DAYS} days)
         </h2>
         <div className="rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-2">
-          <WeeklyChart weeks={weeks12} />
+          <RollingLoadChart data={rollingLoad} />
         </div>
       </section>
 
