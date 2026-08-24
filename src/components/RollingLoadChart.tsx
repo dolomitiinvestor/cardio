@@ -12,7 +12,7 @@ export default function RollingLoadChart({ data }: RollingLoadChartProps) {
   return (
     <div className="h-56 w-full">
       <ResponsiveContainer width="100%" height="100%">
-        <LineChart data={data} margin={{ top: 8, right: 8, left: -20, bottom: 0 }}>
+        <LineChart data={data} margin={{ top: 8, right: 8, left: 4, bottom: 0 }}>
           <CartesianGrid strokeDasharray="3 3" className="stroke-neutral-200 dark:stroke-neutral-800" />
           <XAxis
             dataKey="label"
@@ -25,8 +25,8 @@ export default function RollingLoadChart({ data }: RollingLoadChartProps) {
             tick={{ fontSize: 11 }}
             stroke="currentColor"
             className="text-neutral-500"
-            width={36}
-            label={{ value: 'mi/wk', angle: -90, position: 'insideLeft', fontSize: 11, fill: 'currentColor' }}
+            width={40}
+            allowDecimals={false}
           />
           <Tooltip
             formatter={(value, name) => [
