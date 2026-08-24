@@ -2,9 +2,15 @@ import type { Activity, NewActivity } from './types';
 
 const STORAGE_KEY = 'cardio-tracker:activities:v1';
 const PLAN_KEY = 'cardio-tracker:plan:v1';
+const DAILY_PLAN_KEY = 'cardio-tracker:dailyplan:v1';
 
 export interface PlanEntry {
   weekStart: string; // yyyy-MM-dd, Monday
+  miles: number;
+}
+
+export interface DailyPlanEntry {
+  date: string; // yyyy-MM-dd
   miles: number;
 }
 
@@ -137,10 +143,41 @@ export function clearPlan(): void {
   writePlan([]);
 }
 
+// ---- Daily plan (near-term, day-by-day planning within the Forecast planner) ----
+
+function readDailyPlan(): DailyPlanEntry[] {
+  try {
+    const raw = localStorage.getItem(DAILY_PLAN_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function writeDailyPlan(plan: DailyPlanEntry[]) {
+  localStorage.setItem(DAILY_PLAN_KEY, JSON.stringify(plan));
+}
+
+export function getDailyPlan(): DailyPlanEntry[] {
+  return readDailyPlan();
+}
+
+export function setDailyPlanDay(date: string, miles: number): void {
+  const plan = readDailyPlan().filter((p) => p.date !== date);
+  if (miles > 0) plan.push({ date, miles });
+  writeDailyPlan(plan);
+}
+
+export function clearDailyPlan(): void {
+  writeDailyPlan([]);
+}
+
 // ---- Backup ----
 
 export function exportActivitiesJson(): string {
-  return JSON.stringify({ activities: readAll(), plan: readPlan() }, null, 2);
+  return JSON.stringify({ activities: readAll(), plan: readPlan(), dailyPlan: readDailyPlan() }, null, 2);
 }
 
 export function importActivitiesJson(json: string): void {
@@ -155,4 +192,5 @@ export function importActivitiesJson(json: string): void {
   }
   writeAll(parsed.activities);
   if (Array.isArray(parsed.plan)) writePlan(parsed.plan);
+  if (Array.isArray(parsed.dailyPlan)) writeDailyPlan(parsed.dailyPlan);
 }

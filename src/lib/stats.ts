@@ -1,4 +1,5 @@
 import {
+  addDays,
   addWeeks,
   differenceInCalendarDays,
   eachWeekOfInterval,
@@ -375,6 +376,60 @@ export function dailyRollingSeries(
 }
 
 // ---- Forecast / planner ----
+
+export interface DailyPlanDay {
+  date: string; // yyyy-MM-dd
+  label: string; // 'Today', 'Mon 24', ...
+  isToday: boolean;
+  suggestedMaxMiles: number | null; // null = not enough history to suggest a ceiling
+}
+
+/**
+ * Day-by-day near-term planner: for each of the next `numDays` days (today first), suggests the
+ * most that day could hold while keeping that day's trailing 7-day load at or under 1.3x the
+ * trailing 28-day baseline (the ACWR "sweet spot" ceiling) — i.e. "how much room do I have today,
+ * given what's already planned for the other days in this window." Recomputes the baseline as it
+ * rolls forward, so already-planned days affect later ceilings, mirroring `projectPlanRisk` but at
+ * daily resolution.
+ */
+export function dailyPlanCeilings(
+  activities: Activity[],
+  plannedOverrides: Record<string, number>,
+  numDays: number,
+  referenceDate = new Date(),
+): DailyPlanDay[] {
+  const actualByDate = new Map<string, number>();
+  for (const a of activities) {
+    actualByDate.set(a.date, (actualByDate.get(a.date) ?? 0) + a.distanceMiles);
+  }
+
+  const milesOn = (dateStr: string): number =>
+    plannedOverrides[dateStr] !== undefined ? plannedOverrides[dateStr] : (actualByDate.get(dateStr) ?? 0);
+
+  const results: DailyPlanDay[] = [];
+  for (let i = 0; i < numDays; i++) {
+    const day = addDays(referenceDate, i);
+    const dateStr = format(day, 'yyyy-MM-dd');
+
+    let trailing6 = 0;
+    for (let k = 1; k <= 6; k++) trailing6 += milesOn(format(subDays(day, k), 'yyyy-MM-dd'));
+
+    let trailing28 = 0;
+    for (let k = 1; k <= 28; k++) trailing28 += milesOn(format(subDays(day, k), 'yyyy-MM-dd'));
+
+    const chronicBaseline = trailing28 / 4;
+    const suggestedMaxMiles =
+      chronicBaseline > 0 ? Math.max(0, Math.round((1.3 * chronicBaseline - trailing6) * 10) / 10) : null;
+
+    results.push({
+      date: dateStr,
+      label: i === 0 ? 'Today' : format(day, 'EEE d'),
+      isToday: i === 0,
+      suggestedMaxMiles,
+    });
+  }
+  return results;
+}
 
 export interface PlannedWeek {
   weekStart: string; // yyyy-MM-dd, Monday
