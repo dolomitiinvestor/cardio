@@ -1,48 +1,101 @@
-import { CartesianGrid, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import { useEffect, useMemo, useRef } from 'react';
+import { CartesianGrid, Line, LineChart, Tooltip, XAxis, YAxis } from 'recharts';
 import type { DailyLoadPoint } from '../lib/stats';
 
 interface RollingLoadChartProps {
   data: DailyLoadPoint[];
 }
 
+const PX_PER_DAY = 8;
+const MIN_WIDTH = 320;
+const AXIS_WIDTH = 44;
+const X_AXIS_HEIGHT = 22;
+const CHART_HEIGHT = 224;
+
 export default function RollingLoadChart({ data }: RollingLoadChartProps) {
-  // Show roughly one x-axis label per week so daily data doesn't overlap.
-  const tickInterval = Math.max(0, Math.floor(data.length / 12) - 1);
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  const chartWidth = Math.max(MIN_WIDTH, data.length * PX_PER_DAY);
+
+  // Space x-axis labels about 70px apart so they don't overlap, however wide the chart gets.
+  const desiredLabelCount = Math.max(1, Math.round(chartWidth / 70));
+  const tickInterval = Math.max(0, Math.ceil(data.length / desiredLabelCount) - 1);
+
+  const yTicks = useMemo(() => {
+    const maxValue = data.reduce((m, d) => Math.max(m, d.acute7MPW, d.chronic28MPW), 0);
+    const axisMax = Math.max(10, Math.ceil(maxValue / 10) * 10);
+    return Array.from({ length: axisMax / 10 + 1 }, (_, i) => i * 10);
+  }, [data]);
+  const axisMax = yTicks[yTicks.length - 1];
+
+  // Default to showing the most recent data (scrolled all the way right).
+  useEffect(() => {
+    scrollRef.current?.scrollTo({ left: chartWidth });
+  }, [chartWidth]);
 
   return (
-    <div className="h-56 w-full">
-      <ResponsiveContainer width="100%" height="100%">
-        <LineChart data={data} margin={{ top: 8, right: 8, left: -20, bottom: 0 }}>
-          <CartesianGrid strokeDasharray="3 3" className="stroke-neutral-200 dark:stroke-neutral-800" />
-          <XAxis
-            dataKey="label"
-            tick={{ fontSize: 11 }}
-            interval={tickInterval}
-            stroke="currentColor"
-            className="text-neutral-500"
-          />
+    <div className="flex flex-col gap-1">
+      <div className="flex">
+        {/* Pinned y-axis, kept out of the scrolling area so it's always visible. */}
+        <LineChart
+          width={AXIS_WIDTH + 8}
+          height={CHART_HEIGHT}
+          data={data}
+          margin={{ top: 8, right: 0, bottom: 0, left: 8 }}
+        >
           <YAxis
             tick={{ fontSize: 11 }}
             stroke="currentColor"
             className="text-neutral-500"
-            width={36}
-            label={{ value: 'mi/wk', angle: -90, position: 'insideLeft', fontSize: 11, fill: 'currentColor' }}
+            width={AXIS_WIDTH}
+            domain={[0, axisMax]}
+            ticks={yTicks}
           />
-          <Tooltip
-            formatter={(value, name) => [
-              `${value} mi/wk`,
-              name === 'acute7MPW' ? '7-day rolling MPW' : '28-day rolling MPW',
-            ]}
-            contentStyle={{ fontSize: 12, borderRadius: 8 }}
-          />
-          <Legend
-            formatter={(value) => (value === 'acute7MPW' ? '7-day rolling MPW' : '28-day rolling MPW')}
-            wrapperStyle={{ fontSize: 12 }}
-          />
-          <Line dataKey="acute7MPW" stroke="#7c3aed" strokeWidth={2} dot={false} />
-          <Line dataKey="chronic28MPW" stroke="#f59e0b" strokeWidth={2} dot={false} />
+          <XAxis dataKey="label" height={X_AXIS_HEIGHT} tick={false} axisLine={false} tickLine={false} />
+          {/* Invisible series: recharts won't generate y-axis ticks for a chart with zero graphical children. */}
+          <Line dataKey="acute7MPW" stroke="none" dot={false} isAnimationActive={false} />
         </LineChart>
-      </ResponsiveContainer>
+
+        <div ref={scrollRef} className="overflow-x-auto flex-1">
+          <LineChart
+            width={chartWidth}
+            height={CHART_HEIGHT}
+            data={data}
+            margin={{ top: 8, right: 12, bottom: 0, left: 0 }}
+          >
+            <CartesianGrid strokeDasharray="3 3" className="stroke-neutral-200 dark:stroke-neutral-800" />
+            <XAxis
+              dataKey="label"
+              height={X_AXIS_HEIGHT}
+              tick={{ fontSize: 11 }}
+              interval={tickInterval}
+              stroke="currentColor"
+              className="text-neutral-500"
+            />
+            <YAxis hide domain={[0, axisMax]} ticks={yTicks} />
+            <Tooltip
+              formatter={(value, name) => [
+                `${value} mi/wk`,
+                name === 'acute7MPW' ? '7-day rolling MPW' : '28-day rolling MPW',
+              ]}
+              contentStyle={{ fontSize: 12, borderRadius: 8 }}
+            />
+            <Line dataKey="acute7MPW" stroke="#7c3aed" strokeWidth={2} dot={false} />
+            <Line dataKey="chronic28MPW" stroke="#f59e0b" strokeWidth={2} dot={false} />
+          </LineChart>
+        </div>
+      </div>
+
+      <div className="flex items-center gap-4 justify-center text-xs text-neutral-500 dark:text-neutral-400">
+        <span className="flex items-center gap-1.5">
+          <span className="w-2.5 h-2.5 rounded-full bg-violet-600 inline-block" />
+          7-day rolling MPW
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span className="w-2.5 h-2.5 rounded-full bg-amber-500 inline-block" />
+          28-day rolling MPW
+        </span>
+      </div>
     </div>
   );
 }

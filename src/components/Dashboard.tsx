@@ -15,7 +15,7 @@ import StatCard from './StatCard';
 import RollingLoadChart from './RollingLoadChart';
 import RiskBanner from './RiskBanner';
 
-const CHART_DAYS = 90;
+const CHART_DAYS = 180;
 
 interface DashboardProps {
   activities: Activity[];
