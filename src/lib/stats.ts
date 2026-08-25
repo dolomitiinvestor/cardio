@@ -104,13 +104,14 @@ export interface RollingStats {
   acwr: number | null;
   longestRunLast4Weeks: number;
   longestRunAllTime: number;
-  longRunShareOfWeekPct: number | null; // this week's longest run as % of this week's total
+  longRunShareOfWeekPct: number | null; // longest run in the trailing 7 days, as % of that 7-day total
   avgPaceSecPerMile: number | null; // overall, filtered set
   daysRunLast4Weeks: number; // distinct calendar days with an activity, last 28 days
   totalMilesAllTime: number;
   totalSecondsAllTime: number;
   totalMilesThisMonth: number;
   totalMilesThisYear: number;
+  totalActivityCount: number;
 }
 
 function paceSecPerMile(seconds: number, miles: number): number | null {
@@ -130,12 +131,11 @@ export function computeRollingStats(
   const last4WeeksAvgMiles = last4WeeksTotalMiles / 4;
 
   const sevenDaysAgo = subDays(referenceDate, 6);
-  const acuteMiles = allActivitiesForType
-    .filter((a) => {
-      const d = toDate(a.date);
-      return !isBefore(d, startOfDay(sevenDaysAgo)) && !isAfter(d, endOfDay(referenceDate));
-    })
-    .reduce((sum, a) => sum + a.distanceMiles, 0);
+  const last7DaysActivities = allActivitiesForType.filter((a) => {
+    const d = toDate(a.date);
+    return !isBefore(d, startOfDay(sevenDaysAgo)) && !isAfter(d, endOfDay(referenceDate));
+  });
+  const acuteMiles = last7DaysActivities.reduce((sum, a) => sum + a.distanceMiles, 0);
 
   const twentyEightDaysAgo = subDays(referenceDate, 27);
   const chronicTotalMiles = allActivitiesForType
@@ -157,10 +157,11 @@ export function computeRollingStats(
     .filter((a) => a.type === 'Run')
     .reduce((max, a) => Math.max(max, a.distanceMiles), 0);
 
+  const longestRunLast7Days = last7DaysActivities
+    .filter((a) => a.type === 'Run')
+    .reduce((max, a) => Math.max(max, a.distanceMiles), 0);
   const longRunShareOfWeekPct =
-    thisWeek.miles > 0 && thisWeek.longestRunMiles > 0
-      ? (thisWeek.longestRunMiles / thisWeek.miles) * 100
-      : null;
+    acuteMiles > 0 && longestRunLast7Days > 0 ? (longestRunLast7Days / acuteMiles) * 100 : null;
 
   const totalSecondsAllTime = allActivitiesForType.reduce((s, a) => s + a.durationSeconds, 0);
   const totalMilesAllTime = allActivitiesForType.reduce((s, a) => s + a.distanceMiles, 0);
@@ -205,6 +206,7 @@ export function computeRollingStats(
     totalSecondsAllTime,
     totalMilesThisMonth,
     totalMilesThisYear,
+    totalActivityCount: allActivitiesForType.length,
   };
 }
 

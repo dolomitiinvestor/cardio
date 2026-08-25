@@ -122,7 +122,7 @@ export default function Dashboard({ activities }: DashboardProps) {
           <StatCard label="Longest run (4 wks)" value={`${stats.longestRunLast4Weeks.toFixed(1)} mi`} />
           <StatCard label="Longest run (all-time)" value={`${stats.longestRunAllTime.toFixed(1)} mi`} />
           <StatCard
-            label="Long run % of week"
+            label="Long run % (7 days)"
             value={stats.longRunShareOfWeekPct === null ? '—' : `${stats.longRunShareOfWeekPct.toFixed(0)}%`}
             sublabel="Aim for ≤ 30-40%"
           />
@@ -139,9 +139,19 @@ export default function Dashboard({ activities }: DashboardProps) {
         </h2>
         <div className="grid grid-cols-2 gap-2">
           <StatCard label="Avg pace" value={formatPace(stats.avgPaceSecPerMile)} />
-          <StatCard label="Total time" value={formatDuration(stats.totalSecondsAllTime)} />
           <StatCard label="This month" value={`${stats.totalMilesThisMonth.toFixed(1)} mi`} />
           <StatCard label="This year" value={`${stats.totalMilesThisYear.toFixed(1)} mi`} />
+        </div>
+      </section>
+
+      <section>
+        <h2 className="text-sm font-semibold text-neutral-500 dark:text-neutral-400 mb-2 uppercase tracking-wide">
+          Lifetime
+        </h2>
+        <div className="grid grid-cols-2 gap-2">
+          <StatCard label="Time exercised" value={formatDuration(stats.totalSecondsAllTime)} />
+          <StatCard label="Miles logged" value={`${stats.totalMilesAllTime.toFixed(1)} mi`} />
+          <StatCard label="Activities logged" value={`${stats.totalActivityCount}`} />
         </div>
       </section>
 
