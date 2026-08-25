@@ -24,28 +24,23 @@ anywhere. Use the **Settings → Export backup** button periodically to save a c
 - **Long run % of weekly volume** — a single run dominating the week is an overuse-injury signal
 - **Active days** in the last 28 days
 - **Average pace**, total time, and monthly/yearly totals
-- Rolling training-load chart: 7-day and 28-day rolling average MPW plotted day-by-day over the
-  last 90 days (the same two numbers behind ACWR, visible as a trend instead of a single value)
+- 12-week volume chart
 - All stats can be filtered to Running only or across all cardio types (Bike, Swim, Walk, Elliptical, Row, Hike, Other)
 
 ## Forecast & planner
 
-A dedicated **Forecast** tab lets you plan ahead at two resolutions and see the projected
-injury-risk *before* you run it:
+A dedicated **Forecast** tab lets you plan your next 6 weeks of mileage and see the projected
+injury-risk zone for each planned week *before* you run it — your recent weeks are shown as solid
+bars, with your plan continuing as a dashed projected line.
 
-- **Next 7 days**, day by day: each day shows a suggested **max** — the most mileage that day can
-  hold while keeping your trailing 7-day load at or under 1.3x your recent baseline. Fill in a day
-  and every later day's max recalculates live, so a big day early in the week visibly tightens what
-  the rest of the week can safely hold. A value that exceeds a day's max is flagged.
-- **Next 6 weeks**, by weekly total: recent weeks are shown as solid bars, with your plan
-  continuing as a dashed projected line. Type a target mileage per week, or tap
-  **Suggest ~10%/week ramp** to auto-fill a conservative progression from your current baseline.
-  **Return-to-running plan**: coming back from time off or injury? Enter your comfortable current
+- Type a target mileage per week, or tap **Suggest ~10%/week ramp** to auto-fill a conservative
+  progression from your current baseline
+- **Return-to-running plan**: coming back from time off or injury? Enter your comfortable current
   mileage, a target, and how many weeks to build over, and it fills in a ramp that stays close to
-  the ACWR sweet spot rather than jumping straight back to where you left off.
-- Every planned day and week is tagged with its projected load-ratio zone (Sweet spot / Caution /
-  High risk) so you can pull it back before committing to it.
-- Your plan is saved locally and persists across visits.
+  the ACWR sweet spot rather than jumping straight back to where you left off
+- Each planned week is tagged with its projected load-ratio zone (Sweet spot / Caution / High risk)
+  so you can pull a week back before committing to it
+- Your plan is saved locally and persists across visits
 
 ## Development
 

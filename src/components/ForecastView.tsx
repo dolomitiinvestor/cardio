@@ -1,7 +1,6 @@
 import { useMemo, useState } from 'react';
 import type { Activity } from '../lib/types';
 import {
-  dailyPlanCeilings,
   filterByTypes,
   loadRatioZone,
   projectPlanRisk,
@@ -9,7 +8,7 @@ import {
   suggestProgression,
   upcomingWeekStarts,
 } from '../lib/stats';
-import { getDailyPlan, getPlan, setDailyPlanDay, setPlanWeek } from '../lib/storage';
+import { getPlan, setPlanWeek } from '../lib/storage';
 import ForecastChart from './ForecastChart';
 
 interface ForecastViewProps {
@@ -18,7 +17,6 @@ interface ForecastViewProps {
 
 const PAST_WEEKS = 8;
 const FUTURE_WEEKS = 6;
-const NEXT_DAYS = 7;
 
 export default function ForecastView({ activities }: ForecastViewProps) {
   const runActivities = useMemo(() => filterByTypes(activities, ['Run']), [activities]);
@@ -36,24 +34,6 @@ export default function ForecastView({ activities }: ForecastViewProps) {
     });
     return map;
   });
-
-  const [dailyPlan, setDailyPlan] = useState<Record<string, number>>(() => {
-    const stored = getDailyPlan();
-    const map: Record<string, number> = {};
-    stored.forEach((p) => {
-      map[p.date] = p.miles;
-    });
-    return map;
-  });
-  const dailyCeilings = useMemo(
-    () => dailyPlanCeilings(runActivities, dailyPlan, NEXT_DAYS),
-    [runActivities, dailyPlan],
-  );
-
-  function updateDay(date: string, miles: number) {
-    setDailyPlan((prev) => ({ ...prev, [date]: miles }));
-    setDailyPlanDay(date, miles);
-  }
 
   const [showReturnPlanner, setShowReturnPlanner] = useState(false);
   const [returnCurrent, setReturnCurrent] = useState(String(Math.round(baselineMiles || 5)));
@@ -96,57 +76,10 @@ export default function ForecastView({ activities }: ForecastViewProps) {
       <div>
         <h2 className="text-lg font-semibold text-neutral-900 dark:text-neutral-50">Forecast &amp; planner</h2>
         <p className="text-sm text-neutral-500 dark:text-neutral-400 mt-1">
-          Plan day-by-day for the week ahead and by the week further out, and see how the load
-          compares to your recent baseline — before you run it.
+          Plan your next {FUTURE_WEEKS} weeks of running mileage and see how each week's projected
+          load compares to your recent baseline — before you run it.
         </p>
       </div>
-
-      <section className="flex flex-col gap-2">
-        <h3 className="text-sm font-semibold text-neutral-500 dark:text-neutral-400 uppercase tracking-wide">
-          Next {NEXT_DAYS} days
-        </h3>
-        <div className="flex gap-2 overflow-x-auto pb-1 -mx-4 px-4">
-          {dailyCeilings.map((d) => {
-            const value = dailyPlan[d.date] ?? '';
-            const overMax =
-              d.suggestedMaxMiles !== null && typeof value === 'number' && value > d.suggestedMaxMiles;
-            return (
-              <div
-                key={d.date}
-                className={`shrink-0 w-20 rounded-lg border bg-white dark:bg-neutral-900 px-2 py-2 flex flex-col items-center gap-1.5 ${
-                  d.isToday ? 'border-violet-400 dark:border-violet-600' : 'border-neutral-200 dark:border-neutral-800'
-                }`}
-              >
-                <span
-                  className={`text-[11px] font-semibold ${d.isToday ? 'text-violet-600 dark:text-violet-400' : 'text-neutral-500 dark:text-neutral-400'}`}
-                >
-                  {d.label}
-                </span>
-                <span className="text-[10px] text-neutral-400 tabular-nums">
-                  max {d.suggestedMaxMiles === null ? '—' : d.suggestedMaxMiles}
-                </span>
-                <input
-                  type="number"
-                  inputMode="decimal"
-                  step="0.1"
-                  placeholder="0"
-                  value={value}
-                  onChange={(e) => updateDay(d.date, e.target.value === '' ? 0 : parseFloat(e.target.value) || 0)}
-                  className={`w-full rounded-md border bg-transparent px-1.5 py-1 text-sm font-semibold text-center tabular-nums ${
-                    overMax
-                      ? 'border-amber-400 dark:border-amber-600 text-amber-700 dark:text-amber-400'
-                      : 'border-neutral-300 dark:border-neutral-700'
-                  }`}
-                />
-              </div>
-            );
-          })}
-        </div>
-        <p className="text-[11px] text-neutral-400">
-          "Max" is the most that day can hold while keeping your trailing 7-day load at or under
-          1.3x your recent baseline — it updates as you fill in other days.
-        </p>
-      </section>
 
       <div className="rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-2">
         <ForecastChart data={chartData} />
