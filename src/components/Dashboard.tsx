@@ -126,7 +126,10 @@ export default function Dashboard({ activities }: DashboardProps) {
             value={stats.longRunShareOfWeekPct === null ? '—' : `${stats.longRunShareOfWeekPct.toFixed(0)}%`}
             sublabel="Aim for ≤ 30-40%"
           />
-          <StatCard label="Active days (4 wks)" value={`${stats.daysRunLast4Weeks}/28`} />
+          <StatCard
+            label="Active days (4 wks)"
+            value={`${stats.daysRunLast4Weeks}/28 (${Math.round((stats.daysRunLast4Weeks / 28) * 100)}%)`}
+          />
         </div>
       </section>
 
