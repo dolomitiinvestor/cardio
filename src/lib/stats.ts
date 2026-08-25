@@ -1,4 +1,5 @@
 import {
+  addDays,
   addWeeks,
   differenceInCalendarDays,
   eachWeekOfInterval,
@@ -374,21 +375,129 @@ export function dailyRollingSeries(
   return points;
 }
 
-// ---- Forecast / planner ----
+// ---- Forecast / planner (daily) ----
 
-export interface PlannedWeek {
-  weekStart: string; // yyyy-MM-dd, Monday
-  label: string;
-  miles: number;
+export interface DailyPlanDay {
+  date: string; // yyyy-MM-dd
+  label: string; // 'Today', 'Mon 24', ...
+  isToday: boolean;
+  plannedMiles: number; // the override in effect for this day, or 0
+  suggestedMaxMiles: number | null; // most this day can hold and keep the 7d:28d ratio at/under 1.3x
+  ratio: number | null; // this day's implied 7-day-load : 28-day-baseline ratio, given plannedMiles
 }
 
-/** The Monday-start weeks after the current (in-progress) week, for planning purposes. */
-export function upcomingWeekStarts(numWeeks: number, referenceDate = new Date()): { weekStart: string; label: string }[] {
-  const nextWeekStart = addWeeks(startOfWeek(referenceDate, WEEK_OPTS), 1);
-  return Array.from({ length: numWeeks }, (_, i) => {
-    const start = addWeeks(nextWeekStart, i);
-    return { weekStart: format(start, 'yyyy-MM-dd'), label: format(start, 'MMM d') };
+/** The next `numDays` days starting today. */
+export function upcomingDayStarts(numDays: number, referenceDate = new Date()): { date: string; label: string }[] {
+  return Array.from({ length: numDays }, (_, i) => {
+    const day = addDays(referenceDate, i);
+    return { date: format(day, 'yyyy-MM-dd'), label: i === 0 ? 'Today' : format(day, 'EEE d') };
   });
+}
+
+/**
+ * Projects, for each of the next `numDays` days, the most that day can hold (a "sweet spot"
+ * ceiling of 1.3x the trailing 28-day baseline) and the load ratio the current plan implies for
+ * that day — recomputed day by day so an entry on an earlier day affects every later day's
+ * numbers, the same way ACWR itself rolls forward.
+ */
+export function dailyPlanProjection(
+  activities: Activity[],
+  plannedOverrides: Record<string, number>,
+  numDays: number,
+  referenceDate = new Date(),
+): DailyPlanDay[] {
+  const actualByDate = new Map<string, number>();
+  for (const a of activities) {
+    actualByDate.set(a.date, (actualByDate.get(a.date) ?? 0) + a.distanceMiles);
+  }
+
+  const milesOn = (dateStr: string): number =>
+    plannedOverrides[dateStr] !== undefined ? plannedOverrides[dateStr] : (actualByDate.get(dateStr) ?? 0);
+
+  const results: DailyPlanDay[] = [];
+  for (let i = 0; i < numDays; i++) {
+    const day = addDays(referenceDate, i);
+    const dateStr = format(day, 'yyyy-MM-dd');
+
+    let trailing6 = 0;
+    for (let k = 1; k <= 6; k++) trailing6 += milesOn(format(subDays(day, k), 'yyyy-MM-dd'));
+
+    let trailing28 = 0;
+    for (let k = 1; k <= 28; k++) trailing28 += milesOn(format(subDays(day, k), 'yyyy-MM-dd'));
+
+    const chronicBaseline = trailing28 / 4;
+    const plannedMiles = plannedOverrides[dateStr] ?? 0;
+    const suggestedMaxMiles =
+      chronicBaseline > 0 ? Math.max(0, Math.round((1.3 * chronicBaseline - trailing6) * 10) / 10) : null;
+    const ratio = chronicBaseline > 0 ? (trailing6 + plannedMiles) / chronicBaseline : null;
+
+    results.push({
+      date: dateStr,
+      label: i === 0 ? 'Today' : format(day, 'EEE d'),
+      isToday: i === 0,
+      plannedMiles,
+      suggestedMaxMiles,
+      ratio,
+    });
+  }
+  return results;
+}
+
+/**
+ * Fills the next `numDays` days at each day's safe ("sweet spot") ceiling — the most that day
+ * could hold without pushing the rolling 7-day load past 1.3x the 28-day baseline, computed
+ * sequentially so each day's suggestion already accounts for the ones before it.
+ */
+export function suggestSafeMaxPlan(
+  activities: Activity[],
+  numDays: number,
+  referenceDate = new Date(),
+): Record<string, number> {
+  const overrides: Record<string, number> = {};
+  for (let i = 0; i < numDays; i++) {
+    const [day] = dailyPlanProjection(activities, overrides, 1, addDays(referenceDate, i));
+    overrides[day.date] = day.suggestedMaxMiles ?? 0;
+  }
+  return overrides;
+}
+
+/** The weekdays (0=Sun..6=Sat) the athlete has actually run on in the last `lookbackDays`. */
+export function typicalActiveWeekdays(activities: Activity[], lookbackDays = 28, referenceDate = new Date()): number[] {
+  const cutoff = startOfDay(subDays(referenceDate, lookbackDays));
+  const counts = new Array(7).fill(0);
+  for (const a of activities) {
+    const d = toDate(a.date);
+    if (!isBefore(d, cutoff)) counts[d.getDay()]++;
+  }
+  const active = counts.map((c, i) => (c > 0 ? i : -1)).filter((i) => i >= 0);
+  return active.length > 0 ? active : [2, 4, 6, 0]; // default: Tue/Thu/Sat/Sun
+}
+
+/**
+ * Builds a return-to-running ramp: grows from `currentWeeklyMiles` toward `targetWeeklyMiles`
+ * (or ~10%/week if no target given) over `weeks` weeks, spreading each week's total evenly
+ * across the athlete's typical running days (falling back to Tue/Thu/Sat/Sun with no history).
+ */
+export function suggestReturnToRunningPlan(
+  activities: Activity[],
+  currentWeeklyMiles: number,
+  targetWeeklyMiles: number | undefined,
+  weeks: number,
+  referenceDate = new Date(),
+): Record<string, number> {
+  const weeklyTotals = suggestProgression(currentWeeklyMiles, weeks, targetWeeklyMiles);
+  const activeDays = typicalActiveWeekdays(activities, 28, referenceDate);
+  const overrides: Record<string, number> = {};
+  for (let w = 0; w < weeks; w++) {
+    const perDay = Math.round((weeklyTotals[w] / activeDays.length) * 10) / 10;
+    for (let d = 0; d < 7; d++) {
+      const day = addDays(referenceDate, w * 7 + d);
+      if (activeDays.includes(day.getDay())) {
+        overrides[format(day, 'yyyy-MM-dd')] = perDay;
+      }
+    }
+  }
+  return overrides;
 }
 
 /** Suggests a conservative ramp (~10%/week) from a baseline weekly mileage, capped by a target. */
@@ -402,22 +511,4 @@ export function suggestProgression(baselineMiles: number, numWeeks: number, targ
     plan.push(Math.round(current * 10) / 10);
   }
   return plan;
-}
-
-/**
- * For a sequence of planned future weekly totals, projects the week-over-week load ratio each
- * week would produce (that week's mileage vs. the rolling average of the 4 weeks before it,
- * mixing in already-elapsed actual weeks as the window rolls forward) — i.e. "if I run this much,
- * what does my risk zone look like that week?"
- */
-export function projectPlanRisk(pastWeeksMiles: number[], plannedMiles: number[]): (number | null)[] {
-  const timeline = [...pastWeeksMiles];
-  const ratios: (number | null)[] = [];
-  for (const planned of plannedMiles) {
-    const window = timeline.slice(-4);
-    const baseline = window.length > 0 ? window.reduce((s, m) => s + m, 0) / window.length : 0;
-    ratios.push(baseline > 0 ? planned / baseline : null);
-    timeline.push(planned);
-  }
-  return ratios;
 }

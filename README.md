@@ -29,17 +29,20 @@ anywhere. Use the **Settings → Export backup** button periodically to save a c
 
 ## Forecast & planner
 
-A dedicated **Forecast** tab lets you plan your next 6 weeks of mileage and see the projected
-injury-risk zone for each planned week *before* you run it — your recent weeks are shown as solid
+A dedicated **Forecast** tab lets you plan your next 6 weeks day by day and see the projected
+injury-risk zone for each planned day *before* you run it — your recent days are shown as solid
 bars, with your plan continuing as a dashed projected line.
 
-- Type a target mileage per week, or tap **Suggest ~10%/week ramp** to auto-fill a conservative
-  progression from your current baseline
+- Each day shows a suggested **max** — the most that day can hold while keeping your trailing
+  7-day load at or under 1.3x your recent 28-day baseline — recalculated live as you fill in other
+  days, so an early big day visibly tightens what later days can safely hold
+- **Fill with safe daily max** auto-fills all 42 days at that day-by-day ceiling
 - **Return-to-running plan**: coming back from time off or injury? Enter your comfortable current
-  mileage, a target, and how many weeks to build over, and it fills in a ramp that stays close to
-  the ACWR sweet spot rather than jumping straight back to where you left off
-- Each planned week is tagged with its projected load-ratio zone (Sweet spot / Caution / High risk)
-  so you can pull a week back before committing to it
+  weekly mileage, a target, and how many weeks to build over, and it spreads a conservative
+  ~10%/week ramp across the weekdays you actually run on (detected from your history, or
+  Tue/Thu/Sat/Sun by default)
+- Every planned day is tagged with its projected load-ratio zone (Sweet spot / Caution / High risk)
+  so you can pull a day back before committing to it
 - Your plan is saved locally and persists across visits
 
 ## Development

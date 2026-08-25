@@ -1,83 +1,120 @@
 import { useMemo, useState } from 'react';
+import { format, subDays } from 'date-fns';
 import type { Activity } from '../lib/types';
 import {
+  dailyPlanProjection,
   filterByTypes,
   loadRatioZone,
-  projectPlanRisk,
-  recentWeeks,
-  suggestProgression,
-  upcomingWeekStarts,
+  suggestReturnToRunningPlan,
+  suggestSafeMaxPlan,
+  toDate,
+  upcomingDayStarts,
 } from '../lib/stats';
-import { getPlan, setPlanWeek } from '../lib/storage';
+import { clearDailyPlan, getDailyPlan, setDailyPlanDays } from '../lib/storage';
 import ForecastChart from './ForecastChart';
 
 interface ForecastViewProps {
   activities: Activity[];
 }
 
-const PAST_WEEKS = 8;
-const FUTURE_WEEKS = 6;
+const PAST_DAYS = 14;
+const FUTURE_DAYS = 42;
+const DAYS_PER_WEEK_GROUP = 7;
 
 export default function ForecastView({ activities }: ForecastViewProps) {
   const runActivities = useMemo(() => filterByTypes(activities, ['Run']), [activities]);
-  const pastWeeks = useMemo(() => recentWeeks(runActivities, PAST_WEEKS), [runActivities]);
-  const future = useMemo(() => upcomingWeekStarts(FUTURE_WEEKS), []);
 
-  const baselineMiles = pastWeeks.length > 0 ? pastWeeks[pastWeeks.length - 1].miles : 0;
-  const suggested = useMemo(() => suggestProgression(baselineMiles, FUTURE_WEEKS), [baselineMiles]);
+  const pastDaily = useMemo(() => {
+    const byDate = new Map<string, number>();
+    for (const a of runActivities) byDate.set(a.date, (byDate.get(a.date) ?? 0) + a.distanceMiles);
+    const today = new Date();
+    return Array.from({ length: PAST_DAYS }, (_, i) => {
+      const day = subDays(today, PAST_DAYS - 1 - i);
+      const date = format(day, 'yyyy-MM-dd');
+      return { label: format(day, 'MMM d'), actual: Math.round((byDate.get(date) ?? 0) * 10) / 10 };
+    });
+  }, [runActivities]);
 
-  const [plan, setPlan] = useState<Record<string, number>>(() => {
-    const stored = getPlan();
+  const future = useMemo(() => upcomingDayStarts(FUTURE_DAYS), []);
+
+  const [dailyPlan, setDailyPlan] = useState<Record<string, number>>(() => {
     const map: Record<string, number> = {};
-    stored.forEach((p) => {
-      map[p.weekStart] = p.miles;
+    getDailyPlan().forEach((p) => {
+      map[p.date] = p.miles;
     });
     return map;
   });
 
+  function updateDay(date: string, miles: number) {
+    setDailyPlan((prev) => ({ ...prev, [date]: miles }));
+    setDailyPlanDays({ [date]: miles });
+  }
+
+  function applyPlan(entries: Record<string, number>) {
+    setDailyPlan((prev) => ({ ...prev, ...entries }));
+    setDailyPlanDays(entries);
+  }
+
+  function fillSafeMax() {
+    applyPlan(suggestSafeMaxPlan(runActivities, FUTURE_DAYS));
+  }
+
+  function handleClear() {
+    setDailyPlan({});
+    clearDailyPlan();
+  }
+
   const [showReturnPlanner, setShowReturnPlanner] = useState(false);
-  const [returnCurrent, setReturnCurrent] = useState(String(Math.round(baselineMiles || 5)));
-  const [returnTarget, setReturnTarget] = useState(String(Math.round((baselineMiles || 5) * 1.5)));
-  const [returnWeeks, setReturnWeeks] = useState(String(FUTURE_WEEKS));
-
-  function plannedMilesFor(weekStart: string, index: number): number {
-    return plan[weekStart] ?? suggested[index];
-  }
-
-  function updateWeek(weekStart: string, miles: number) {
-    setPlan((prev) => ({ ...prev, [weekStart]: miles }));
-    setPlanWeek(weekStart, miles);
-  }
-
-  function applySuggested() {
-    future.forEach((w, i) => updateWeek(w.weekStart, suggested[i]));
-  }
+  const lastPastMiles = pastDaily.slice(-7).reduce((s, d) => s + d.actual, 0);
+  const [returnCurrent, setReturnCurrent] = useState(String(Math.round(lastPastMiles || 10)));
+  const [returnTarget, setReturnTarget] = useState(String(Math.round((lastPastMiles || 10) * 1.5)));
+  const [returnWeeks, setReturnWeeks] = useState('6');
 
   function applyReturnPlan() {
     const current = parseFloat(returnCurrent) || 0;
     const target = parseFloat(returnTarget) || undefined;
-    const weeks = Math.min(Math.max(parseInt(returnWeeks, 10) || FUTURE_WEEKS, 1), FUTURE_WEEKS);
-    const ramp = suggestProgression(current, weeks, target);
-    future.slice(0, weeks).forEach((w, i) => updateWeek(w.weekStart, ramp[i]));
+    const weeks = Math.min(Math.max(parseInt(returnWeeks, 10) || 6, 1), FUTURE_DAYS / 7);
+    applyPlan(suggestReturnToRunningPlan(runActivities, current, target, weeks));
     setShowReturnPlanner(false);
   }
 
-  const plannedMilesArray = future.map((w, i) => plannedMilesFor(w.weekStart, i));
-  const pastMilesArray = pastWeeks.map((w) => w.miles);
-  const projectedRatios = projectPlanRisk(pastMilesArray, plannedMilesArray);
+  const projection = useMemo(
+    () => dailyPlanProjection(runActivities, dailyPlan, FUTURE_DAYS),
+    [runActivities, dailyPlan],
+  );
 
   const chartData = [
-    ...pastWeeks.map((w) => ({ label: w.label, actual: Math.round(w.miles * 10) / 10, planned: null as number | null })),
-    ...future.map((w, i) => ({ label: w.label, actual: null as number | null, planned: Math.round(plannedMilesArray[i] * 10) / 10 })),
+    ...pastDaily.map((d) => ({ label: d.label, actual: d.actual, planned: null as number | null })),
+    ...future.map((f) => ({
+      label: f.label,
+      actual: null as number | null,
+      planned: dailyPlan[f.date] !== undefined ? Math.round(dailyPlan[f.date] * 10) / 10 : null,
+    })),
   ];
+
+  const weekGroups = useMemo(() => {
+    const groups: { label: string; totalMiles: number; days: typeof projection }[] = [];
+    for (let i = 0; i < projection.length; i += DAYS_PER_WEEK_GROUP) {
+      const days = projection.slice(i, i + DAYS_PER_WEEK_GROUP);
+      const start = toDate(days[0].date);
+      const end = toDate(days[days.length - 1].date);
+      groups.push({
+        label: `${format(start, 'MMM d')} – ${format(end, 'MMM d')}`,
+        totalMiles: Math.round(days.reduce((s, d) => s + d.plannedMiles, 0) * 10) / 10,
+        days,
+      });
+    }
+    return groups;
+  }, [projection]);
 
   return (
     <div className="p-4 flex flex-col gap-4 pb-24 max-w-md mx-auto w-full">
       <div>
         <h2 className="text-lg font-semibold text-neutral-900 dark:text-neutral-50">Forecast &amp; planner</h2>
         <p className="text-sm text-neutral-500 dark:text-neutral-400 mt-1">
-          Plan your next {FUTURE_WEEKS} weeks of running mileage and see how each week's projected
-          load compares to your recent baseline — before you run it.
+          Plan your next {FUTURE_DAYS / 7} weeks day by day. Each day shows a suggested max — the
+          most it can hold while keeping your trailing 7-day load at or under 1.3x your recent
+          baseline — and updates live as you fill in other days.
         </p>
       </div>
 
@@ -87,10 +124,10 @@ export default function ForecastView({ activities }: ForecastViewProps) {
 
       <div className="flex gap-2">
         <button
-          onClick={applySuggested}
+          onClick={fillSafeMax}
           className="flex-1 rounded-lg border border-neutral-300 dark:border-neutral-700 py-2 text-xs font-semibold text-neutral-900 dark:text-neutral-50"
         >
-          Suggest ~10%/week ramp
+          Fill with safe daily max
         </button>
         <button
           onClick={() => setShowReturnPlanner((v) => !v)}
@@ -99,13 +136,16 @@ export default function ForecastView({ activities }: ForecastViewProps) {
           Return-to-running plan
         </button>
       </div>
+      <button onClick={handleClear} className="text-xs font-medium text-neutral-400 self-start -mt-2">
+        Clear plan
+      </button>
 
       {showReturnPlanner && (
         <div className="rounded-xl border border-neutral-200 dark:border-neutral-800 p-3 flex flex-col gap-3">
           <p className="text-xs text-neutral-500 dark:text-neutral-400">
             Coming back from time off or injury? Enter what feels comfortable now, your target
-            weekly mileage, and how many weeks to build over — this fills in a conservative ramp
-            that stays close to the sweet spot.
+            weekly mileage, and how many weeks to build over — this spreads a conservative ramp
+            across your usual running days.
           </p>
           <label className="flex flex-col gap-1 text-sm font-medium text-neutral-700 dark:text-neutral-300">
             Comfortable weekly mileage now
@@ -128,12 +168,12 @@ export default function ForecastView({ activities }: ForecastViewProps) {
             />
           </label>
           <label className="flex flex-col gap-1 text-sm font-medium text-neutral-700 dark:text-neutral-300">
-            Weeks to build (max {FUTURE_WEEKS})
+            Weeks to build (max {FUTURE_DAYS / 7})
             <input
               type="number"
               inputMode="numeric"
               min={1}
-              max={FUTURE_WEEKS}
+              max={FUTURE_DAYS / 7}
               value={returnWeeks}
               onChange={(e) => setReturnWeeks(e.target.value)}
               className="rounded-lg border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-3 py-2 text-base"
@@ -148,51 +188,61 @@ export default function ForecastView({ activities }: ForecastViewProps) {
         </div>
       )}
 
-      <section className="flex flex-col gap-2">
+      <section className="flex flex-col gap-3">
         <h3 className="text-sm font-semibold text-neutral-500 dark:text-neutral-400 uppercase tracking-wide">
-          Planned weeks
+          Planned days
         </h3>
-        {future.map((w, i) => {
-          const ratio = projectedRatios[i];
-          const zone = loadRatioZone(ratio);
-          const value = plannedMilesFor(w.weekStart, i);
-          return (
-            <div
-              key={w.weekStart}
-              className="rounded-lg border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 px-3 py-2.5 flex items-center gap-3"
-            >
-              <div className="flex-1">
-                <p className="text-xs text-neutral-500 dark:text-neutral-400">Week of {w.label}</p>
-                <input
-                  type="number"
-                  inputMode="decimal"
-                  step="0.1"
-                  value={value}
-                  onChange={(e) => updateWeek(w.weekStart, parseFloat(e.target.value) || 0)}
-                  className="w-full mt-0.5 rounded-md border border-neutral-300 dark:border-neutral-700 bg-transparent px-2 py-1 text-sm font-semibold tabular-nums"
-                />
-              </div>
-              <div className="text-right shrink-0">
-                <span
-                  className={`inline-block rounded-full px-2 py-1 text-[11px] font-semibold ${
-                    zone.tone === 'good'
-                      ? 'bg-emerald-100 dark:bg-emerald-950/50 text-emerald-800 dark:text-emerald-300'
-                      : zone.tone === 'caution'
-                        ? 'bg-amber-100 dark:bg-amber-950/50 text-amber-800 dark:text-amber-300'
-                        : zone.tone === 'high'
-                          ? 'bg-red-100 dark:bg-red-950/50 text-red-800 dark:text-red-300'
-                          : 'bg-sky-100 dark:bg-sky-950/50 text-sky-800 dark:text-sky-300'
+        {weekGroups.map((group, gi) => (
+          <div key={gi} className="flex flex-col gap-1.5">
+            <div className="flex items-baseline justify-between px-1">
+              <span className="text-xs font-semibold text-neutral-500 dark:text-neutral-400">{group.label}</span>
+              <span className="text-xs text-neutral-400 tabular-nums">{group.totalMiles} mi</span>
+            </div>
+            {group.days.map((d) => {
+              const zone = loadRatioZone(d.ratio);
+              const value = dailyPlan[d.date] ?? '';
+              return (
+                <div
+                  key={d.date}
+                  className={`rounded-lg border bg-white dark:bg-neutral-900 px-3 py-2 flex items-center gap-3 ${
+                    d.isToday ? 'border-violet-400 dark:border-violet-600' : 'border-neutral-200 dark:border-neutral-800'
                   }`}
                 >
-                  {zone.label}
-                </span>
-                <p className="text-[11px] text-neutral-400 mt-0.5 tabular-nums">
-                  {ratio === null ? '—' : `${ratio.toFixed(2)}x`}
-                </p>
-              </div>
-            </div>
-          );
-        })}
+                  <div className="w-16 shrink-0">
+                    <p className={`text-xs font-semibold ${d.isToday ? 'text-violet-600 dark:text-violet-400' : 'text-neutral-700 dark:text-neutral-300'}`}>
+                      {d.label}
+                    </p>
+                    <p className="text-[10px] text-neutral-400 tabular-nums">
+                      max {d.suggestedMaxMiles === null ? '—' : d.suggestedMaxMiles}
+                    </p>
+                  </div>
+                  <input
+                    type="number"
+                    inputMode="decimal"
+                    step="0.1"
+                    placeholder="0"
+                    value={value}
+                    onChange={(e) => updateDay(d.date, e.target.value === '' ? 0 : parseFloat(e.target.value) || 0)}
+                    className="flex-1 min-w-0 rounded-md border border-neutral-300 dark:border-neutral-700 bg-transparent px-2 py-1 text-sm font-semibold tabular-nums"
+                  />
+                  <span
+                    className={`shrink-0 rounded-full px-2 py-1 text-[10px] font-semibold text-center ${
+                      zone.tone === 'good'
+                        ? 'bg-emerald-100 dark:bg-emerald-950/50 text-emerald-800 dark:text-emerald-300'
+                        : zone.tone === 'caution'
+                          ? 'bg-amber-100 dark:bg-amber-950/50 text-amber-800 dark:text-amber-300'
+                          : zone.tone === 'high'
+                            ? 'bg-red-100 dark:bg-red-950/50 text-red-800 dark:text-red-300'
+                            : 'bg-sky-100 dark:bg-sky-950/50 text-sky-800 dark:text-sky-300'
+                    }`}
+                  >
+                    {zone.label}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        ))}
       </section>
     </div>
   );
