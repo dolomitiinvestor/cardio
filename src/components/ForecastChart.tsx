@@ -24,7 +24,10 @@ export default function ForecastChart({ data }: ForecastChartProps) {
           <XAxis dataKey="label" tick={{ fontSize: 11 }} interval={tickInterval} stroke="currentColor" />
           <YAxis tick={{ fontSize: 11 }} stroke="currentColor" width={36} allowDecimals={false} />
           <Tooltip
-            formatter={(value, name) => [value == null ? '—' : `${value} mi`, name === 'actual' ? 'Actual' : 'Planned']}
+            formatter={(value, name) => [
+              value == null ? '—' : `${value} mi`,
+              name === 'actual' ? 'Actual (7-day total)' : 'Planned (7-day total)',
+            ]}
             contentStyle={{ fontSize: 12, borderRadius: 8 }}
           />
           <Bar dataKey="actual" fill="#7c3aed" radius={[2, 2, 0, 0]} />

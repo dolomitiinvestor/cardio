@@ -1,8 +1,9 @@
 import { useMemo, useState } from 'react';
-import { format, subDays } from 'date-fns';
+import { format } from 'date-fns';
 import type { Activity } from '../lib/types';
 import {
   dailyPlanProjection,
+  dailyRollingSeries,
   filterByTypes,
   loadRatioZone,
   suggestReturnToRunningPlan,
@@ -24,16 +25,11 @@ const DAYS_PER_WEEK_GROUP = 7;
 export default function ForecastView({ activities }: ForecastViewProps) {
   const runActivities = useMemo(() => filterByTypes(activities, ['Run']), [activities]);
 
-  const pastDaily = useMemo(() => {
-    const byDate = new Map<string, number>();
-    for (const a of runActivities) byDate.set(a.date, (byDate.get(a.date) ?? 0) + a.distanceMiles);
-    const today = new Date();
-    return Array.from({ length: PAST_DAYS }, (_, i) => {
-      const day = subDays(today, PAST_DAYS - 1 - i);
-      const date = format(day, 'yyyy-MM-dd');
-      return { label: format(day, 'MMM d'), actual: Math.round((byDate.get(date) ?? 0) * 10) / 10 };
-    });
-  }, [runActivities]);
+  // Trailing 7-day total as of each day, not that single day's mileage.
+  const pastDaily = useMemo(
+    () => dailyRollingSeries(runActivities, PAST_DAYS).map((d) => ({ label: d.label, actual: d.acute7MPW })),
+    [runActivities],
+  );
 
   const future = useMemo(() => upcomingDayStarts(FUTURE_DAYS), []);
 
@@ -65,7 +61,7 @@ export default function ForecastView({ activities }: ForecastViewProps) {
   }
 
   const [showReturnPlanner, setShowReturnPlanner] = useState(false);
-  const lastPastMiles = pastDaily.slice(-7).reduce((s, d) => s + d.actual, 0);
+  const lastPastMiles = pastDaily[pastDaily.length - 1]?.actual ?? 0;
   const [returnCurrent, setReturnCurrent] = useState(String(Math.round(lastPastMiles || 10)));
   const [returnTarget, setReturnTarget] = useState(String(Math.round((lastPastMiles || 10) * 1.5)));
   const [returnWeeks, setReturnWeeks] = useState('6');
@@ -85,10 +81,10 @@ export default function ForecastView({ activities }: ForecastViewProps) {
 
   const chartData = [
     ...pastDaily.map((d) => ({ label: d.label, actual: d.actual, planned: null as number | null })),
-    ...future.map((f) => ({
+    ...future.map((f, i) => ({
       label: f.label,
       actual: null as number | null,
-      planned: dailyPlan[f.date] !== undefined ? Math.round(dailyPlan[f.date] * 10) / 10 : null,
+      planned: dailyPlan[f.date] !== undefined ? projection[i].rollingWeeklyMiles : null,
     })),
   ];
 
@@ -112,9 +108,11 @@ export default function ForecastView({ activities }: ForecastViewProps) {
       <div>
         <h2 className="text-lg font-semibold text-neutral-900 dark:text-neutral-50">Forecast &amp; planner</h2>
         <p className="text-sm text-neutral-500 dark:text-neutral-400 mt-1">
-          Plan your next {FUTURE_DAYS / 7} weeks day by day. Each day shows a suggested max — the
-          most it can hold while keeping your trailing 7-day load at or under 1.3x your recent
-          baseline — and updates live as you fill in other days.
+          Plan your next {FUTURE_DAYS / 7} weeks day by day. The chart tracks your trailing 7-day
+          total, not single-day mileage, so you can see your rolling weekly volume build over
+          time. Each day below shows a suggested max — the most it can hold while keeping that
+          7-day load at or under 1.3x your recent baseline — and updates live as you fill in other
+          days.
         </p>
       </div>
 

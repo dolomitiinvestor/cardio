@@ -11,11 +11,46 @@ interface HistoryListProps {
 export default function HistoryList({ activities, onDelete }: HistoryListProps) {
   const [filter, setFilter] = useState<CardioType | 'all'>('all');
   const [confirmId, setConfirmId] = useState<string | null>(null);
+  const [showFilters, setShowFilters] = useState(false);
 
-  const filtered = useMemo(
-    () => (filter === 'all' ? activities : activities.filter((a) => a.type === filter)),
-    [activities, filter],
-  );
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
+  const [minMiles, setMinMiles] = useState('');
+  const [maxMiles, setMaxMiles] = useState('');
+  const [minMinutes, setMinMinutes] = useState('');
+  const [maxMinutes, setMaxMinutes] = useState('');
+
+  const advancedFilterCount = [dateFrom, dateTo, minMiles, maxMiles, minMinutes, maxMinutes].filter(
+    (v) => v !== '',
+  ).length;
+
+  function clearAdvancedFilters() {
+    setDateFrom('');
+    setDateTo('');
+    setMinMiles('');
+    setMaxMiles('');
+    setMinMinutes('');
+    setMaxMinutes('');
+  }
+
+  const filtered = useMemo(() => {
+    const minMi = minMiles === '' ? null : parseFloat(minMiles);
+    const maxMi = maxMiles === '' ? null : parseFloat(maxMiles);
+    const minMin = minMinutes === '' ? null : parseFloat(minMinutes);
+    const maxMin = maxMinutes === '' ? null : parseFloat(maxMinutes);
+
+    return activities.filter((a) => {
+      if (filter !== 'all' && a.type !== filter) return false;
+      if (dateFrom && a.date < dateFrom) return false;
+      if (dateTo && a.date > dateTo) return false;
+      if (minMi !== null && a.distanceMiles < minMi) return false;
+      if (maxMi !== null && a.distanceMiles > maxMi) return false;
+      const minutes = a.durationSeconds / 60;
+      if (minMin !== null && minutes < minMin) return false;
+      if (maxMin !== null && minutes > maxMin) return false;
+      return true;
+    });
+  }, [activities, filter, dateFrom, dateTo, minMiles, maxMiles, minMinutes, maxMinutes]);
 
   return (
     <div className="p-4 flex flex-col gap-3 pb-24 max-w-md mx-auto w-full">
@@ -31,6 +66,101 @@ export default function HistoryList({ activities, onDelete }: HistoryListProps) 
           </FilterChip>
         ))}
       </div>
+
+      <button
+        onClick={() => setShowFilters((v) => !v)}
+        className="self-start text-xs font-semibold text-violet-600 dark:text-violet-400"
+      >
+        {showFilters ? 'Hide filters' : 'More filters'}
+        {advancedFilterCount > 0 ? ` (${advancedFilterCount})` : ''}
+      </button>
+
+      {showFilters && (
+        <div className="rounded-xl border border-neutral-200 dark:border-neutral-800 p-3 flex flex-col gap-3">
+          <div className="grid grid-cols-2 gap-2">
+            <label className="flex flex-col gap-1 text-xs font-medium text-neutral-700 dark:text-neutral-300">
+              From date
+              <input
+                type="date"
+                value={dateFrom}
+                onChange={(e) => setDateFrom(e.target.value)}
+                className="rounded-md border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-2 py-1.5 text-sm"
+              />
+            </label>
+            <label className="flex flex-col gap-1 text-xs font-medium text-neutral-700 dark:text-neutral-300">
+              To date
+              <input
+                type="date"
+                value={dateTo}
+                onChange={(e) => setDateTo(e.target.value)}
+                className="rounded-md border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-2 py-1.5 text-sm"
+              />
+            </label>
+            <label className="flex flex-col gap-1 text-xs font-medium text-neutral-700 dark:text-neutral-300">
+              Min distance (mi)
+              <input
+                type="number"
+                inputMode="decimal"
+                step="0.1"
+                min={0}
+                placeholder="0"
+                value={minMiles}
+                onChange={(e) => setMinMiles(e.target.value)}
+                className="rounded-md border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-2 py-1.5 text-sm"
+              />
+            </label>
+            <label className="flex flex-col gap-1 text-xs font-medium text-neutral-700 dark:text-neutral-300">
+              Max distance (mi)
+              <input
+                type="number"
+                inputMode="decimal"
+                step="0.1"
+                min={0}
+                placeholder="Any"
+                value={maxMiles}
+                onChange={(e) => setMaxMiles(e.target.value)}
+                className="rounded-md border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-2 py-1.5 text-sm"
+              />
+            </label>
+            <label className="flex flex-col gap-1 text-xs font-medium text-neutral-700 dark:text-neutral-300">
+              Min duration (min)
+              <input
+                type="number"
+                inputMode="numeric"
+                min={0}
+                placeholder="0"
+                value={minMinutes}
+                onChange={(e) => setMinMinutes(e.target.value)}
+                className="rounded-md border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-2 py-1.5 text-sm"
+              />
+            </label>
+            <label className="flex flex-col gap-1 text-xs font-medium text-neutral-700 dark:text-neutral-300">
+              Max duration (min)
+              <input
+                type="number"
+                inputMode="numeric"
+                min={0}
+                placeholder="Any"
+                value={maxMinutes}
+                onChange={(e) => setMaxMinutes(e.target.value)}
+                className="rounded-md border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-2 py-1.5 text-sm"
+              />
+            </label>
+          </div>
+          {advancedFilterCount > 0 && (
+            <button
+              onClick={clearAdvancedFilters}
+              className="self-start text-xs font-medium text-neutral-400"
+            >
+              Clear these filters
+            </button>
+          )}
+        </div>
+      )}
+
+      <p className="text-xs text-neutral-400">
+        {filtered.length} activit{filtered.length === 1 ? 'y' : 'ies'}
+      </p>
 
       {filtered.length === 0 && (
         <p className="text-sm text-neutral-500 dark:text-neutral-400 text-center py-8">No activities.</p>

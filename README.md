@@ -27,11 +27,18 @@ anywhere. Use the **Settings → Export backup** button periodically to save a c
 - 12-week volume chart
 - All stats can be filtered to Running only or across all cardio types (Bike, Swim, Walk, Elliptical, Row, Hike, Other)
 
+## History
+
+Every logged or imported activity is listed and searchable in the **History** tab: filter by
+cardio type, date range, distance range, or duration range (tap **More filters** to expand them),
+with a live count of how many activities match.
+
 ## Forecast & planner
 
 A dedicated **Forecast** tab lets you plan your next 6 weeks day by day and see the projected
-injury-risk zone for each planned day *before* you run it — your recent days are shown as solid
-bars, with your plan continuing as a dashed projected line.
+injury-risk zone for each planned day *before* you run it — the chart tracks your trailing 7-day
+total rather than single-day mileage, so recent history is shown as smooth solid bars, with your
+plan continuing as a dashed projected line.
 
 - Each day shows a suggested **max** — the most that day can hold while keeping your trailing
   7-day load at or under 1.3x your recent 28-day baseline — recalculated live as you fill in other
