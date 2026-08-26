@@ -148,7 +148,7 @@ export default function Dashboard({ activities }: DashboardProps) {
         <h2 className="text-sm font-semibold text-neutral-500 dark:text-neutral-400 mb-2 uppercase tracking-wide">
           Lifetime
         </h2>
-        <div className="grid grid-cols-2 gap-2">
+        <div className="grid grid-cols-3 gap-2">
           <StatCard label="Time exercised" value={formatDuration(stats.totalSecondsAllTime)} />
           <StatCard label="Miles logged" value={`${stats.totalMilesAllTime.toFixed(1)} mi`} />
           <StatCard label="Activities logged" value={`${stats.totalActivityCount}`} />
