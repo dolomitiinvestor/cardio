@@ -79,7 +79,7 @@ export default function Dashboard({ activities }: DashboardProps) {
           This week
         </h2>
         <div className="grid grid-cols-2 gap-2">
-          <StatCard label="Miles this week (MPW)" value={stats.thisWeekMiles.toFixed(1)} sublabel="mi" />
+          <StatCard label="Miles this week (MPW)" value={stats.acuteMiles.toFixed(1)} sublabel="mi" />
           <StatCard
             label="4-wk avg MPW"
             value={stats.last4WeeksAvgMiles.toFixed(1)}
