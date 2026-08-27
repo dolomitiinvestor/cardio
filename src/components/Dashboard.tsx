@@ -100,6 +100,24 @@ export default function Dashboard({ activities }: DashboardProps) {
             }
           />
           <StatCard
+            label="Vs. prior 7 days"
+            value={
+              stats.rollingWeekOverWeekPct === null
+                ? '—'
+                : `${stats.rollingWeekOverWeekPct > 0 ? '+' : ''}${stats.rollingWeekOverWeekPct.toFixed(0)}%`
+            }
+            sublabel={
+              stats.rollingWeekOverWeekPct !== null && Math.abs(stats.rollingWeekOverWeekPct) > 10
+                ? 'Keep increases under ~10%'
+                : 'Last 7 days vs the 7 before'
+            }
+            tone={
+              stats.rollingWeekOverWeekPct !== null && stats.rollingWeekOverWeekPct > 10
+                ? 'caution'
+                : 'default'
+            }
+          />
+          <StatCard
             label="ACWR (7d:28d)"
             value={stats.acwr === null ? '—' : stats.acwr.toFixed(2)}
             sublabel={zone.label}

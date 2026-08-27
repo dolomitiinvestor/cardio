@@ -100,6 +100,8 @@ export interface RollingStats {
   prevWeekMiles: number;
   weekOverWeekPct: number | null;
   acuteMiles: number; // trailing 7 days
+  prior7DaysMiles: number; // the 7 days before that (days 8-14 back)
+  rollingWeekOverWeekPct: number | null; // acuteMiles vs prior7DaysMiles
   chronicWeeklyAvgMiles: number; // trailing 28 days, avg per week
   acwr: number | null;
   longestRunLast4Weeks: number;
@@ -136,6 +138,17 @@ export function computeRollingStats(
     return !isBefore(d, startOfDay(sevenDaysAgo)) && !isAfter(d, endOfDay(referenceDate));
   });
   const acuteMiles = last7DaysActivities.reduce((sum, a) => sum + a.distanceMiles, 0);
+
+  const prior7Start = subDays(referenceDate, 13);
+  const prior7End = subDays(referenceDate, 7);
+  const prior7DaysMiles = allActivitiesForType
+    .filter((a) => {
+      const d = toDate(a.date);
+      return !isBefore(d, startOfDay(prior7Start)) && !isAfter(d, endOfDay(prior7End));
+    })
+    .reduce((sum, a) => sum + a.distanceMiles, 0);
+  const rollingWeekOverWeekPct =
+    prior7DaysMiles > 0 ? ((acuteMiles - prior7DaysMiles) / prior7DaysMiles) * 100 : null;
 
   const twentyEightDaysAgo = subDays(referenceDate, 27);
   const chronicTotalMiles = allActivitiesForType
@@ -195,6 +208,8 @@ export function computeRollingStats(
     prevWeekMiles: prevWeek?.miles ?? 0,
     weekOverWeekPct,
     acuteMiles,
+    prior7DaysMiles,
+    rollingWeekOverWeekPct,
     chronicWeeklyAvgMiles,
     acwr,
     longestRunLast4Weeks,
