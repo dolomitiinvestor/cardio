@@ -155,7 +155,7 @@ export default function Dashboard({ activities }: DashboardProps) {
         <h2 className="text-sm font-semibold text-neutral-500 dark:text-neutral-400 mb-2 uppercase tracking-wide">
           Pace &amp; totals
         </h2>
-        <div className="grid grid-cols-2 gap-2">
+        <div className="grid grid-cols-3 gap-2">
           <StatCard label="Avg pace" value={formatPace(stats.avgPaceSecPerMile)} />
           <StatCard label="This month" value={`${stats.totalMilesThisMonth.toFixed(1)} mi`} />
           <StatCard label="This year" value={`${stats.totalMilesThisYear.toFixed(1)} mi`} />
