@@ -2,6 +2,7 @@ import { useRef, useState } from 'react';
 import type { ColumnMapping, ParsedCsv } from '../lib/csvImport';
 import { buildActivitiesFromRows, guessMapping, parseCsvFile } from '../lib/csvImport';
 import type { NewActivity } from '../lib/types';
+import { clearGistConfig, getGistConfig, pullFromGist, pushToGist, saveGistConfig } from '../lib/gistSync';
 
 interface SettingsViewProps {
   activityCount: number;
@@ -27,6 +28,15 @@ export default function SettingsView({
   const [mapping, setMapping] = useState<ColumnMapping | null>(null);
   const [csvError, setCsvError] = useState<string | null>(null);
   const [csvResult, setCsvResult] = useState<{ added: number; skipped: number; failed: number } | null>(null);
+
+  const gistConfig = getGistConfig();
+  const [gistToken, setGistToken] = useState(gistConfig?.token ?? '');
+  const [gistId, setGistId] = useState(gistConfig?.gistId ?? '');
+  const [lastSyncedAt, setLastSyncedAt] = useState<string | null>(gistConfig?.lastSyncedAt ?? null);
+  const [gistBusy, setGistBusy] = useState<'push' | 'pull' | null>(null);
+  const [gistError, setGistError] = useState<string | null>(null);
+  const [gistMessage, setGistMessage] = useState<string | null>(null);
+  const [confirmPull, setConfirmPull] = useState(false);
 
   function handleExport() {
     const json = onExport();
@@ -76,6 +86,64 @@ export default function SettingsView({
     setParsed(null);
     setMapping(null);
     if (csvFileInputRef.current) csvFileInputRef.current.value = '';
+  }
+
+  async function handleGistPush() {
+    setGistError(null);
+    setGistMessage(null);
+    const token = gistToken.trim();
+    if (!token) {
+      setGistError('Paste a GitHub token first.');
+      return;
+    }
+    setGistBusy('push');
+    try {
+      const json = onExport();
+      const id = await pushToGist(token, gistId.trim() || null, json);
+      const now = new Date().toISOString();
+      setGistId(id);
+      setLastSyncedAt(now);
+      saveGistConfig({ token, gistId: id, lastSyncedAt: now });
+      setGistMessage('Pushed this device\'s data to the Gist.');
+    } catch (e) {
+      setGistError(e instanceof Error ? e.message : 'Push failed.');
+    } finally {
+      setGistBusy(null);
+    }
+  }
+
+  async function handleGistPull() {
+    setGistError(null);
+    setGistMessage(null);
+    const token = gistToken.trim();
+    const id = gistId.trim();
+    if (!token || !id) {
+      setGistError('A token and Gist ID are both required to pull.');
+      return;
+    }
+    setGistBusy('pull');
+    try {
+      const json = await pullFromGist(token, id);
+      onRestoreBackup(json);
+      const now = new Date().toISOString();
+      setLastSyncedAt(now);
+      saveGistConfig({ token, gistId: id, lastSyncedAt: now });
+      setGistMessage('Pulled from the Gist and restored on this device.');
+    } catch (e) {
+      setGistError(e instanceof Error ? e.message : 'Pull failed.');
+    } finally {
+      setGistBusy(null);
+      setConfirmPull(false);
+    }
+  }
+
+  function handleForgetGistConfig() {
+    clearGistConfig();
+    setGistToken('');
+    setGistId('');
+    setLastSyncedAt(null);
+    setGistMessage('Forgot saved token and Gist ID on this device.');
+    setGistError(null);
   }
 
   const preview = parsed && mapping ? buildActivitiesFromRows(parsed.rows.slice(0, 5), mapping, 'all') : [];
@@ -228,6 +296,95 @@ export default function SettingsView({
           />
         </label>
         {message && <p className="text-xs text-emerald-600 dark:text-emerald-400">{message}</p>}
+      </section>
+
+      <section className="flex flex-col gap-2">
+        <h3 className="text-sm font-semibold text-neutral-900 dark:text-neutral-50">Sync across devices (GitHub Gist)</h3>
+        <p className="text-xs text-neutral-500 dark:text-neutral-400">
+          Push your data to a private Gist on your GitHub account, then pull it down on another device.
+          Create a token at{' '}
+          <code className="px-1 rounded bg-neutral-100 dark:bg-neutral-800">
+            github.com/settings/tokens/new?scopes=gist
+          </code>{' '}
+          (classic token, <code className="px-1 rounded bg-neutral-100 dark:bg-neutral-800">gist</code> scope
+          only) and paste it below. The token and Gist ID are stored only in this browser.
+        </p>
+
+        <label className="flex flex-col gap-1 text-sm font-medium text-neutral-700 dark:text-neutral-300">
+          Personal access token
+          <input
+            type="password"
+            value={gistToken}
+            onChange={(e) => setGistToken(e.target.value)}
+            placeholder="ghp_..."
+            autoComplete="off"
+            className="rounded-lg border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-3 py-2 text-sm"
+          />
+        </label>
+
+        <label className="flex flex-col gap-1 text-sm font-medium text-neutral-700 dark:text-neutral-300">
+          Gist ID
+          <input
+            type="text"
+            value={gistId}
+            onChange={(e) => setGistId(e.target.value)}
+            placeholder="Leave blank to create a new one on first push"
+            autoComplete="off"
+            className="rounded-lg border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-3 py-2 text-sm"
+          />
+        </label>
+
+        <div className="flex gap-2">
+          <button
+            onClick={handleGistPush}
+            disabled={gistBusy !== null}
+            className="flex-1 rounded-lg bg-violet-600 text-white font-semibold py-2.5 text-sm active:scale-[0.98] transition-transform disabled:opacity-50"
+          >
+            {gistBusy === 'push' ? 'Pushing…' : 'Push to Gist'}
+          </button>
+          {confirmPull ? (
+            <button
+              onClick={handleGistPull}
+              disabled={gistBusy !== null}
+              className="flex-1 rounded-lg bg-red-600 text-white font-semibold py-2.5 text-sm disabled:opacity-50"
+            >
+              {gistBusy === 'pull' ? 'Pulling…' : 'Confirm overwrite'}
+            </button>
+          ) : (
+            <button
+              onClick={() => setConfirmPull(true)}
+              disabled={gistBusy !== null}
+              className="flex-1 rounded-lg border border-neutral-300 dark:border-neutral-700 py-2.5 text-sm font-semibold text-neutral-900 dark:text-neutral-50 disabled:opacity-50"
+            >
+              Pull from Gist
+            </button>
+          )}
+        </div>
+        {confirmPull && (
+          <p className="text-xs text-red-600 dark:text-red-400">
+            This replaces all data on this device with what's in the Gist.{' '}
+            <button onClick={() => setConfirmPull(false)} className="underline">
+              Cancel
+            </button>
+          </p>
+        )}
+
+        {lastSyncedAt && (
+          <p className="text-xs text-neutral-500 dark:text-neutral-400">
+            Last synced {new Date(lastSyncedAt).toLocaleString()}
+          </p>
+        )}
+        {gistMessage && <p className="text-xs text-emerald-600 dark:text-emerald-400">{gistMessage}</p>}
+        {gistError && <p className="text-xs text-red-600 dark:text-red-400">{gistError}</p>}
+
+        {gistConfig && (
+          <button
+            onClick={handleForgetGistConfig}
+            className="self-start text-xs text-neutral-500 dark:text-neutral-400 underline"
+          >
+            Forget saved token on this device
+          </button>
+        )}
       </section>
 
       <section className="flex flex-col gap-2">
