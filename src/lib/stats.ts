@@ -400,6 +400,7 @@ export interface DailyPlanDay {
   isToday: boolean;
   plannedMiles: number; // the override in effect for this day, or 0
   rollingWeeklyMiles: number; // trailing 7-day total (the 6 days before this one, plus plannedMiles)
+  rollingChronicMiles: number; // trailing 28-day total (the 27 days before this one, plus plannedMiles) / 4
   suggestedMaxMiles: number | null; // most this day can hold and keep the 7d:28d ratio at/under 1.3x
   ratio: number | null; // this day's implied 7-day-load : 28-day-baseline ratio, given plannedMiles
 }
@@ -455,6 +456,7 @@ export function dailyPlanProjection(
       isToday: i === 0,
       plannedMiles,
       rollingWeeklyMiles: Math.round((trailing6 + plannedMiles) * 10) / 10,
+      rollingChronicMiles: Math.round(((trailing28 + plannedMiles) / 4) * 10) / 10,
       suggestedMaxMiles,
       ratio,
     });

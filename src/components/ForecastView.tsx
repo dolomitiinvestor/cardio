@@ -9,10 +9,10 @@ import {
   suggestReturnToRunningPlan,
   suggestSafeMaxPlan,
   toDate,
-  upcomingDayStarts,
 } from '../lib/stats';
 import { clearDailyPlan, getDailyPlan, setDailyPlanDays } from '../lib/storage';
 import ForecastChart from './ForecastChart';
+import type { ForecastChartPoint } from './ForecastChart';
 
 interface ForecastViewProps {
   activities: Activity[];
@@ -25,13 +25,9 @@ const DAYS_PER_WEEK_GROUP = 7;
 export default function ForecastView({ activities }: ForecastViewProps) {
   const runActivities = useMemo(() => filterByTypes(activities, ['Run']), [activities]);
 
-  // Trailing 7-day total as of each day, not that single day's mileage.
-  const pastDaily = useMemo(
-    () => dailyRollingSeries(runActivities, PAST_DAYS).map((d) => ({ label: d.label, actual: d.acute7MPW })),
-    [runActivities],
-  );
-
-  const future = useMemo(() => upcomingDayStarts(FUTURE_DAYS), []);
+  // Trailing 7-day and 28-day totals as of each day, not that single day's mileage. The last
+  // entry is today, so it doubles as the boundary where the planned (dashed) lines pick up.
+  const pastDaily = useMemo(() => dailyRollingSeries(runActivities, PAST_DAYS), [runActivities]);
 
   const [dailyPlan, setDailyPlan] = useState<Record<string, number>>(() => {
     const map: Record<string, number> = {};
@@ -61,7 +57,7 @@ export default function ForecastView({ activities }: ForecastViewProps) {
   }
 
   const [showReturnPlanner, setShowReturnPlanner] = useState(false);
-  const lastPastMiles = pastDaily[pastDaily.length - 1]?.actual ?? 0;
+  const lastPastMiles = pastDaily[pastDaily.length - 1]?.acute7MPW ?? 0;
   const [returnCurrent, setReturnCurrent] = useState(String(Math.round(lastPastMiles || 10)));
   const [returnTarget, setReturnTarget] = useState(String(Math.round((lastPastMiles || 10) * 1.5)));
   const [returnWeeks, setReturnWeeks] = useState('6');
@@ -79,13 +75,31 @@ export default function ForecastView({ activities }: ForecastViewProps) {
     [runActivities, dailyPlan],
   );
 
-  const chartData = [
-    ...pastDaily.map((d) => ({ label: d.label, actual: d.actual, planned: null as number | null })),
-    ...future.map((f, i) => ({
-      label: f.label,
-      actual: null as number | null,
-      planned: dailyPlan[f.date] !== undefined ? projection[i].rollingWeeklyMiles : null,
-    })),
+  // Today shows up once, as the last point of the history line — its rolling values are
+  // repeated onto the planned line too, so the dashed segment picks up right where the solid
+  // one ends instead of leaving a gap.
+  const chartData: ForecastChartPoint[] = [
+    ...pastDaily.map((d, i) => {
+      const isToday = i === pastDaily.length - 1;
+      return {
+        label: isToday ? 'Today' : d.label,
+        l7Actual: d.acute7MPW,
+        l7Planned: isToday ? d.acute7MPW : null,
+        l28Actual: d.chronic28MPW,
+        l28Planned: isToday ? d.chronic28MPW : null,
+      };
+    }),
+    // projection[0] is today, already represented above, so future days start at index 1.
+    ...projection.slice(1).map((d) => {
+      const hasPlan = dailyPlan[d.date] !== undefined;
+      return {
+        label: d.label,
+        l7Actual: null,
+        l7Planned: hasPlan ? d.rollingWeeklyMiles : null,
+        l28Actual: null,
+        l28Planned: hasPlan ? d.rollingChronicMiles : null,
+      };
+    }),
   ];
 
   const weekGroups = useMemo(() => {
@@ -108,11 +122,11 @@ export default function ForecastView({ activities }: ForecastViewProps) {
       <div>
         <h2 className="text-lg font-semibold text-neutral-900 dark:text-neutral-50">Forecast &amp; planner</h2>
         <p className="text-sm text-neutral-500 dark:text-neutral-400 mt-1">
-          Plan your next {FUTURE_DAYS / 7} weeks day by day. The chart tracks your trailing 7-day
-          total, not single-day mileage, so you can see your rolling weekly volume build over
-          time. Each day below shows a suggested max — the most it can hold while keeping that
-          7-day load at or under 1.3x your recent baseline — and updates live as you fill in other
-          days.
+          Plan your next {FUTURE_DAYS / 7} weeks day by day. The chart tracks your rolling 7-day
+          and 28-day totals, not single-day mileage, so you can see your training load build over
+          time — solid through today, then dashed wherever you've planned ahead. Each day below
+          shows a suggested max — the most it can hold while keeping that 7-day load at or under
+          1.3x your recent baseline — and updates live as you fill in other days.
         </p>
       </div>
 
