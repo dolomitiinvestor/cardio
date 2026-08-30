@@ -2,10 +2,10 @@ import { useMemo, useState } from 'react';
 import { format } from 'date-fns';
 import type { Activity } from '../lib/types';
 import {
+  combinedRiskStatus,
   dailyPlanProjection,
   dailyRollingSeries,
   filterByTypes,
-  loadRatioZone,
   suggestReturnToRunningPlan,
   suggestSafeMaxPlan,
   toDate,
@@ -211,45 +211,53 @@ export default function ForecastView({ activities }: ForecastViewProps) {
               <span className="text-xs text-neutral-400 tabular-nums">{group.totalMiles} mi</span>
             </div>
             {group.days.map((d) => {
-              const zone = loadRatioZone(d.ratio);
+              const risk = combinedRiskStatus(d.ratio, d.cumulativeOverloadRatio);
               const value = dailyPlan[d.date] ?? '';
               return (
                 <div
                   key={d.date}
-                  className={`rounded-lg border bg-white dark:bg-neutral-900 px-3 py-2 flex items-center gap-3 ${
+                  className={`rounded-lg border bg-white dark:bg-neutral-900 px-3 py-2 flex flex-col gap-1.5 ${
                     d.isToday ? 'border-violet-400 dark:border-violet-600' : 'border-neutral-200 dark:border-neutral-800'
                   }`}
                 >
-                  <div className="w-16 shrink-0">
-                    <p className={`text-xs font-semibold ${d.isToday ? 'text-violet-600 dark:text-violet-400' : 'text-neutral-700 dark:text-neutral-300'}`}>
-                      {d.label}
-                    </p>
-                    <p className="text-[10px] text-neutral-400 tabular-nums">
-                      max {d.suggestedMaxMiles === null ? '—' : d.suggestedMaxMiles}
-                    </p>
+                  <div className="flex items-center gap-3">
+                    <div className="w-16 shrink-0">
+                      <p className={`text-xs font-semibold ${d.isToday ? 'text-violet-600 dark:text-violet-400' : 'text-neutral-700 dark:text-neutral-300'}`}>
+                        {d.label}
+                      </p>
+                      <p className="text-[10px] text-neutral-400 tabular-nums">
+                        max {d.suggestedMaxMiles === null ? '—' : d.suggestedMaxMiles}
+                      </p>
+                    </div>
+                    <input
+                      type="number"
+                      inputMode="decimal"
+                      step="0.1"
+                      placeholder="0"
+                      value={value}
+                      onChange={(e) => updateDay(d.date, e.target.value === '' ? 0 : parseFloat(e.target.value) || 0)}
+                      className="flex-1 min-w-0 rounded-md border border-neutral-300 dark:border-neutral-700 bg-transparent px-2 py-1 text-sm font-semibold tabular-nums"
+                    />
+                    <span
+                      className={`shrink-0 rounded-full px-2 py-1 text-[10px] font-semibold text-center ${
+                        risk.tone === 'good'
+                          ? 'bg-emerald-100 dark:bg-emerald-950/50 text-emerald-800 dark:text-emerald-300'
+                          : risk.tone === 'caution'
+                            ? 'bg-amber-100 dark:bg-amber-950/50 text-amber-800 dark:text-amber-300'
+                            : risk.tone === 'high'
+                              ? 'bg-red-100 dark:bg-red-950/50 text-red-800 dark:text-red-300'
+                              : 'bg-sky-100 dark:bg-sky-950/50 text-sky-800 dark:text-sky-300'
+                      }`}
+                    >
+                      {risk.label}
+                    </span>
                   </div>
-                  <input
-                    type="number"
-                    inputMode="decimal"
-                    step="0.1"
-                    placeholder="0"
-                    value={value}
-                    onChange={(e) => updateDay(d.date, e.target.value === '' ? 0 : parseFloat(e.target.value) || 0)}
-                    className="flex-1 min-w-0 rounded-md border border-neutral-300 dark:border-neutral-700 bg-transparent px-2 py-1 text-sm font-semibold tabular-nums"
-                  />
-                  <span
-                    className={`shrink-0 rounded-full px-2 py-1 text-[10px] font-semibold text-center ${
-                      zone.tone === 'good'
-                        ? 'bg-emerald-100 dark:bg-emerald-950/50 text-emerald-800 dark:text-emerald-300'
-                        : zone.tone === 'caution'
-                          ? 'bg-amber-100 dark:bg-amber-950/50 text-amber-800 dark:text-amber-300'
-                          : zone.tone === 'high'
-                            ? 'bg-red-100 dark:bg-red-950/50 text-red-800 dark:text-red-300'
-                            : 'bg-sky-100 dark:bg-sky-950/50 text-sky-800 dark:text-sky-300'
-                    }`}
-                  >
-                    {zone.label}
-                  </span>
+                  <div className="flex items-center justify-end gap-2.5 text-[10px] text-neutral-400 tabular-nums pr-0.5">
+                    <span>L7D {d.rollingWeeklyMiles}</span>
+                    <span>L28D {d.rollingChronicMiles}</span>
+                    <span>ACWR {d.ratio === null ? '—' : d.ratio.toFixed(2)}</span>
+                    <span>Overload {d.cumulativeOverloadRatio === null ? '—' : d.cumulativeOverloadRatio.toFixed(2)}</span>
+                  </div>
                 </div>
               );
             })}

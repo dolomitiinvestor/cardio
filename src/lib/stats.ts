@@ -400,9 +400,10 @@ export interface DailyPlanDay {
   isToday: boolean;
   plannedMiles: number; // the override in effect for this day, or 0
   rollingWeeklyMiles: number; // trailing 7-day total (the 6 days before this one, plus plannedMiles)
-  rollingChronicMiles: number; // trailing 28-day total (the 27 days before this one, plus plannedMiles) / 4
+  rollingChronicMiles: number; // trailing 28-day (this day + the 27 before it) total / 4, i.e. L28D MPW
   suggestedMaxMiles: number | null; // most this day can hold and keep the 7d:28d ratio at/under 1.3x
-  ratio: number | null; // this day's implied 7-day-load : 28-day-baseline ratio, given plannedMiles
+  ratio: number | null; // ACWR: this day's implied 7-day-load : 28-day-baseline ratio, given plannedMiles
+  cumulativeOverloadRatio: number | null; // this day's implied 4wk : ~9wk-prior cumulative-overload ratio
 }
 
 /** The next `numDays` days starting today. */
@@ -441,8 +442,19 @@ export function dailyPlanProjection(
     let trailing6 = 0;
     for (let k = 1; k <= 6; k++) trailing6 += milesOn(format(subDays(day, k), 'yyyy-MM-dd'));
 
+    // The 28-day baseline used for suggestedMax/ACWR deliberately excludes this day itself, so
+    // filling in today's plan doesn't shift the baseline it's being measured against.
     let trailing28 = 0;
     for (let k = 1; k <= 28; k++) trailing28 += milesOn(format(subDays(day, k), 'yyyy-MM-dd'));
+
+    // The displayed L28D figure, by contrast, is the true trailing 28-day window (this day plus
+    // the 27 before it) — the same convention as the dashboard's chronic28MPW.
+    let trailing27 = 0;
+    for (let k = 1; k <= 27; k++) trailing27 += milesOn(format(subDays(day, k), 'yyyy-MM-dd'));
+
+    // ~9 weeks (62 days) before the 28-day window above, for the cumulative-overload ratio.
+    let baselineTotal = 0;
+    for (let k = 29; k <= 90; k++) baselineTotal += milesOn(format(subDays(day, k), 'yyyy-MM-dd'));
 
     const chronicBaseline = trailing28 / 4;
     const plannedMiles = plannedOverrides[dateStr] ?? 0;
@@ -450,15 +462,21 @@ export function dailyPlanProjection(
       chronicBaseline > 0 ? Math.max(0, Math.round((1.3 * chronicBaseline - trailing6) * 10) / 10) : null;
     const ratio = chronicBaseline > 0 ? (trailing6 + plannedMiles) / chronicBaseline : null;
 
+    const rollingChronicMilesRaw = (trailing27 + plannedMiles) / 4;
+    const overloadBaselineWeeklyAvg = baselineTotal / 9;
+    const cumulativeOverloadRatio =
+      overloadBaselineWeeklyAvg > 0 ? rollingChronicMilesRaw / overloadBaselineWeeklyAvg : null;
+
     results.push({
       date: dateStr,
       label: i === 0 ? 'Today' : format(day, 'EEE d'),
       isToday: i === 0,
       plannedMiles,
       rollingWeeklyMiles: Math.round((trailing6 + plannedMiles) * 10) / 10,
-      rollingChronicMiles: Math.round(((trailing28 + plannedMiles) / 4) * 10) / 10,
+      rollingChronicMiles: Math.round(rollingChronicMilesRaw * 10) / 10,
       suggestedMaxMiles,
       ratio,
+      cumulativeOverloadRatio,
     });
   }
   return results;
