@@ -6,6 +6,7 @@ import {
   dailyPlanProjection,
   dailyRollingSeries,
   filterByTypes,
+  formatDuration,
   suggestReturnToRunningPlan,
   suggestSafeMaxPlan,
   toDate,
@@ -253,7 +254,9 @@ export default function ForecastView({ activities }: ForecastViewProps) {
                     </span>
                   </div>
                   <div className="flex items-center justify-end gap-2.5 text-[10px] text-neutral-400 tabular-nums pr-0.5">
-                    <span>L7D {d.rollingWeeklyMiles}</span>
+                    <span>
+                      L7D {d.rollingWeeklyMiles}mi / {formatDuration(d.rollingWeeklySeconds)}
+                    </span>
                     <span>L28D {d.rollingChronicMiles}</span>
                     <span>ACWR {d.ratio === null ? '—' : d.ratio.toFixed(2)}</span>
                     <span>Overload {d.cumulativeOverloadRatio === null ? '—' : d.cumulativeOverloadRatio.toFixed(2)}</span>

@@ -400,6 +400,7 @@ export interface DailyPlanDay {
   isToday: boolean;
   plannedMiles: number; // the override in effect for this day, or 0
   rollingWeeklyMiles: number; // trailing 7-day total (the 6 days before this one, plus plannedMiles)
+  rollingWeeklySeconds: number; // trailing 7-day time, planned days estimated at recent avg pace
   rollingChronicMiles: number; // trailing 28-day (this day + the 27 before it) total / 4, i.e. L28D MPW
   suggestedMaxMiles: number | null; // most this day can hold and keep the 7d:28d ratio at/under 1.3x
   ratio: number | null; // ACWR: this day's implied 7-day-load : 28-day-baseline ratio, given plannedMiles
@@ -427,12 +428,26 @@ export function dailyPlanProjection(
   referenceDate = new Date(),
 ): DailyPlanDay[] {
   const actualByDate = new Map<string, number>();
+  const secondsByDate = new Map<string, number>();
   for (const a of activities) {
     actualByDate.set(a.date, (actualByDate.get(a.date) ?? 0) + a.distanceMiles);
+    secondsByDate.set(a.date, (secondsByDate.get(a.date) ?? 0) + a.durationSeconds);
   }
 
   const milesOn = (dateStr: string): number =>
     plannedOverrides[dateStr] !== undefined ? plannedOverrides[dateStr] : (actualByDate.get(dateStr) ?? 0);
+
+  // Planned days have no logged duration, so estimate one from the recent overall pace.
+  const totalActualMiles = activities.reduce((s, a) => s + a.distanceMiles, 0);
+  const totalActualSeconds = activities.reduce((s, a) => s + a.durationSeconds, 0);
+  const avgPaceSecPerMile = totalActualMiles > 0 ? totalActualSeconds / totalActualMiles : null;
+
+  const secondsOn = (dateStr: string): number => {
+    if (plannedOverrides[dateStr] !== undefined) {
+      return avgPaceSecPerMile !== null ? plannedOverrides[dateStr] * avgPaceSecPerMile : 0;
+    }
+    return secondsByDate.get(dateStr) ?? 0;
+  };
 
   const results: DailyPlanDay[] = [];
   for (let i = 0; i < numDays; i++) {
@@ -440,7 +455,12 @@ export function dailyPlanProjection(
     const dateStr = format(day, 'yyyy-MM-dd');
 
     let trailing6 = 0;
-    for (let k = 1; k <= 6; k++) trailing6 += milesOn(format(subDays(day, k), 'yyyy-MM-dd'));
+    let trailing6Seconds = 0;
+    for (let k = 1; k <= 6; k++) {
+      const backDateStr = format(subDays(day, k), 'yyyy-MM-dd');
+      trailing6 += milesOn(backDateStr);
+      trailing6Seconds += secondsOn(backDateStr);
+    }
 
     // The 28-day baseline used for suggestedMax/ACWR deliberately excludes this day itself, so
     // filling in today's plan doesn't shift the baseline it's being measured against.
@@ -458,6 +478,10 @@ export function dailyPlanProjection(
 
     const chronicBaseline = trailing28 / 4;
     const plannedMiles = plannedOverrides[dateStr] ?? 0;
+    const plannedSeconds =
+      plannedOverrides[dateStr] !== undefined
+        ? (avgPaceSecPerMile !== null ? plannedMiles * avgPaceSecPerMile : 0)
+        : 0;
     const suggestedMaxMiles =
       chronicBaseline > 0 ? Math.max(0, Math.round((1.3 * chronicBaseline - trailing6) * 10) / 10) : null;
     const ratio = chronicBaseline > 0 ? (trailing6 + plannedMiles) / chronicBaseline : null;
@@ -473,6 +497,7 @@ export function dailyPlanProjection(
       isToday: i === 0,
       plannedMiles,
       rollingWeeklyMiles: Math.round((trailing6 + plannedMiles) * 10) / 10,
+      rollingWeeklySeconds: Math.round(trailing6Seconds + plannedSeconds),
       rollingChronicMiles: Math.round(rollingChronicMilesRaw * 10) / 10,
       suggestedMaxMiles,
       ratio,
