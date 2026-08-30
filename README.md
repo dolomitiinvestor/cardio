@@ -6,7 +6,8 @@ Strava history, and see the stats that matter for avoiding over/under-training: 
 and more.
 
 All data is stored locally in the browser (`localStorage`) — there is no backend and nothing is sent
-anywhere. Use the **Settings → Export backup** button periodically to save a copy.
+anywhere except when you opt into GitHub Gist sync. Use the **Settings → Export backup** button
+periodically to save a copy.
 
 ## Stats tracked
 
@@ -99,6 +100,22 @@ platform that serves from the domain root, change it back to `/`.
 3. In the app's **Import** tab, upload that CSV. Column mapping (date/type/distance/duration) and
    units are auto-detected but can be adjusted before confirming. Re-importing the same file is safe
    — already-imported activities are detected and skipped.
+
+## Syncing across devices
+
+Since data lives only in each device's browser storage, use **Settings → Sync across devices
+(GitHub Gist)** to move it between devices:
+
+1. Create a GitHub personal access token (classic) with just the **gist** scope at
+   `github.com/settings/tokens/new?scopes=gist`.
+2. On your first device, paste the token and tap **Push to Gist** — this creates a new private Gist
+   and fills in its Gist ID.
+3. On another device, paste the same token and Gist ID, then tap **Pull from Gist** to overwrite
+   that device's local data with what's in the Gist.
+
+The token and Gist ID are stored only in each browser's local storage; syncing is a manual
+push/pull (there's no background sync), so push after logging activity on one device before
+pulling on another.
 
 ## Tech
 
