@@ -15,7 +15,7 @@ import StatCard from './StatCard';
 import RollingLoadChart from './RollingLoadChart';
 import RiskBanner from './RiskBanner';
 
-const CHART_DAYS = 180;
+const CHART_DAYS = 365;
 
 interface DashboardProps {
   activities: Activity[];
@@ -175,7 +175,7 @@ export default function Dashboard({ activities }: DashboardProps) {
 
       <section>
         <h2 className="text-sm font-semibold text-neutral-500 dark:text-neutral-400 mb-2 uppercase tracking-wide">
-          Training load (last {CHART_DAYS} days)
+          Training load (last {CHART_DAYS} days, showing most recent 180)
         </h2>
         <div className="rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-2">
           <RollingLoadChart data={rollingLoad} />

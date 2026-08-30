@@ -11,11 +11,16 @@ const MIN_WIDTH = 320;
 const AXIS_WIDTH = 44;
 const X_AXIS_HEIGHT = 22;
 const CHART_HEIGHT = 224;
+// How many days are visible without scrolling — the chart can hold more days of
+// history than this (scroll left to reach them), but the on-screen footprint
+// never grows past what this many days would take up.
+const VISIBLE_DAYS = 180;
 
 export default function RollingLoadChart({ data }: RollingLoadChartProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const chartWidth = Math.max(MIN_WIDTH, data.length * PX_PER_DAY);
+  const visibleWidth = VISIBLE_DAYS * PX_PER_DAY;
 
   // Space x-axis labels about 70px apart so they don't overlap, however wide the chart gets.
   const desiredLabelCount = Math.max(1, Math.round(chartWidth / 70));
@@ -56,7 +61,7 @@ export default function RollingLoadChart({ data }: RollingLoadChartProps) {
           <Line dataKey="acute7MPW" stroke="none" dot={false} isAnimationActive={false} />
         </LineChart>
 
-        <div ref={scrollRef} className="overflow-x-auto flex-1">
+        <div ref={scrollRef} className="overflow-x-auto flex-1" style={{ maxWidth: visibleWidth }}>
           <LineChart
             width={chartWidth}
             height={CHART_HEIGHT}
@@ -96,6 +101,12 @@ export default function RollingLoadChart({ data }: RollingLoadChartProps) {
           28-day rolling MPW
         </span>
       </div>
+
+      {data.length > VISIBLE_DAYS && (
+        <p className="text-center text-xs text-neutral-400 dark:text-neutral-600">
+          Scroll left to see older data
+        </p>
+      )}
     </div>
   );
 }
