@@ -5,11 +5,14 @@ import {
   combinedRiskStatus,
   computeCumulativeOverload,
   computeRollingStats,
+  dailyRollingHoursSeries,
   dailyRollingSeries,
   filterByTypes,
   formatDuration,
   formatPace,
   loadRatioZone,
+  totalSecondsInWeek,
+  totalSecondsThisYear,
 } from '../lib/stats';
 import StatCard from './StatCard';
 import RollingLoadChart from './RollingLoadChart';
@@ -34,7 +37,10 @@ export default function Dashboard({ activities }: DashboardProps) {
 
   const stats = useMemo(() => computeRollingStats(filtered), [filtered]);
   const rollingLoad = useMemo(() => dailyRollingSeries(filtered, CHART_DAYS), [filtered]);
+  const rollingLoadHours = useMemo(() => dailyRollingHoursSeries(activities, CHART_DAYS), [activities]);
   const overload = useMemo(() => computeCumulativeOverload(filtered), [filtered]);
+  const hoursThisWeek = useMemo(() => totalSecondsInWeek(activities), [activities]);
+  const hoursThisYear = useMemo(() => totalSecondsThisYear(activities), [activities]);
   const zone = loadRatioZone(stats.acwr);
   const overloadZone = loadRatioZone(overload.ratio);
   const risk = combinedRiskStatus(stats.acwr, overload.ratio);
@@ -129,6 +135,11 @@ export default function Dashboard({ activities }: DashboardProps) {
             sublabel={overloadZone.label}
             tone={overloadZone.tone}
           />
+          <StatCard
+            label="Hours this week"
+            value={formatDuration(hoursThisWeek)}
+            sublabel="All cardio types"
+          />
         </div>
       </section>
 
@@ -159,6 +170,11 @@ export default function Dashboard({ activities }: DashboardProps) {
           <StatCard label="Avg pace" value={formatPace(stats.avgPaceSecPerMile)} />
           <StatCard label="This month" value={`${stats.totalMilesThisMonth.toFixed(1)} mi`} />
           <StatCard label="This year" value={`${stats.totalMilesThisYear.toFixed(1)} mi`} />
+          <StatCard
+            label="Hours this year"
+            value={formatDuration(hoursThisYear)}
+            sublabel="All cardio types"
+          />
         </div>
       </section>
 
@@ -178,7 +194,7 @@ export default function Dashboard({ activities }: DashboardProps) {
           Training load (last {CHART_DAYS} days, showing most recent 180)
         </h2>
         <div className="rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-2">
-          <RollingLoadChart data={rollingLoad} />
+          <RollingLoadChart mpwData={rollingLoad} hoursData={rollingLoadHours} />
         </div>
       </section>
 
