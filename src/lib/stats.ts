@@ -392,6 +392,70 @@ export function dailyRollingSeries(
   return points;
 }
 
+export interface DailyHoursPoint {
+  date: string; // yyyy-MM-dd
+  label: string;
+  acute7Hours: number; // trailing 7-day hours, i.e. that day's rolling weekly hours
+  chronic28Hours: number; // trailing 28-day hours / 4, i.e. rolling 4-week average weekly hours
+}
+
+/**
+ * Same rolling-window shape as dailyRollingSeries but tracking total time (hours) instead of
+ * distance, and meant to be fed *all* cardio activities regardless of the type filter elsewhere
+ * on the dashboard — hours are comparable across running, biking, swimming, etc. in a way miles
+ * aren't.
+ */
+export function dailyRollingHoursSeries(
+  activities: Activity[],
+  numDays: number,
+  referenceDate = new Date(),
+): DailyHoursPoint[] {
+  const points: DailyHoursPoint[] = [];
+  for (let i = numDays - 1; i >= 0; i--) {
+    const day = subDays(referenceDate, i);
+    const dayEnd = endOfDay(day);
+
+    const acute7Start = startOfDay(subDays(day, 6));
+    const acute7Seconds = activities
+      .filter((a) => {
+        const d = toDate(a.date);
+        return !isBefore(d, acute7Start) && !isAfter(d, dayEnd);
+      })
+      .reduce((s, a) => s + a.durationSeconds, 0);
+
+    const chronic28Start = startOfDay(subDays(day, 27));
+    const chronic28Seconds = activities
+      .filter((a) => {
+        const d = toDate(a.date);
+        return !isBefore(d, chronic28Start) && !isAfter(d, dayEnd);
+      })
+      .reduce((s, a) => s + a.durationSeconds, 0);
+
+    points.push({
+      date: format(day, 'yyyy-MM-dd'),
+      label: format(day, 'MMM d'),
+      acute7Hours: Math.round((acute7Seconds / 3600) * 10) / 10,
+      chronic28Hours: Math.round((chronic28Seconds / 3600 / 4) * 10) / 10,
+    });
+  }
+  return points;
+}
+
+/** Total time (seconds) across all given activities that fall within the current Mon-Sun week. */
+export function totalSecondsInWeek(activities: Activity[], referenceDate = new Date()): number {
+  const weekStart = format(startOfWeek(referenceDate, WEEK_OPTS), 'yyyy-MM-dd');
+  const weekEnd = format(endOfWeek(referenceDate, WEEK_OPTS), 'yyyy-MM-dd');
+  return activities
+    .filter((a) => a.date >= weekStart && a.date <= weekEnd)
+    .reduce((s, a) => s + a.durationSeconds, 0);
+}
+
+/** Total time (seconds) across all given activities that fall within the current calendar year. */
+export function totalSecondsThisYear(activities: Activity[], referenceDate = new Date()): number {
+  const yearStart = format(referenceDate, 'yyyy-01-01');
+  return activities.filter((a) => a.date >= yearStart).reduce((s, a) => s + a.durationSeconds, 0);
+}
+
 // ---- Forecast / planner (daily) ----
 
 export interface DailyPlanDay {
