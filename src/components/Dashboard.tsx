@@ -141,7 +141,7 @@ export default function Dashboard({ activities }: DashboardProps) {
             sublabel="Aim for ≤ 30-40%"
           />
           <StatCard
-            label="Active days (4 wks)"
+            label="Active days (L4W)"
             value={`${stats.daysRunLast4Weeks}/28 (${Math.round((stats.daysRunLast4Weeks / 28) * 100)}%)`}
           />
         </div>
