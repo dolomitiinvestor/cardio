@@ -276,6 +276,61 @@ export function monthlyPaceSummary(
   return months;
 }
 
+export interface MonthlyTotal {
+  monthKey: string; // yyyy-MM
+  label: string;
+  miles: number;
+}
+
+/** The single calendar month (lifetime) with the highest total mileage, or null if there's no data. */
+export function maxMonthlyMiles(activities: Activity[]): MonthlyTotal | null {
+  const byMonth = new Map<string, number>();
+  for (const a of activities) {
+    const key = a.date.slice(0, 7); // yyyy-MM
+    byMonth.set(key, (byMonth.get(key) ?? 0) + a.distanceMiles);
+  }
+
+  let best: MonthlyTotal | null = null;
+  for (const [key, miles] of byMonth) {
+    if (!best || miles > best.miles) {
+      best = { monthKey: key, label: format(parseISO(`${key}-01`), 'MMM yyyy'), miles };
+    }
+  }
+  return best;
+}
+
+export interface CalendarDay {
+  date: string; // yyyy-MM-dd
+  hasActivity: boolean;
+  isFuture: boolean;
+}
+
+export type CalendarWeek = CalendarDay[]; // Monday-first, 7 entries
+
+/** Mon-Sun grid of the last `numWeeks` weeks (oldest first, ending with the current week) marking which days had an activity. */
+export function activityCalendar(
+  activities: Activity[],
+  numWeeks: number,
+  referenceDate = new Date(),
+): CalendarWeek[] {
+  const activeDates = new Set(activities.map((a) => a.date));
+  const today = format(referenceDate, 'yyyy-MM-dd');
+  const currentWeekStart = startOfWeek(referenceDate, WEEK_OPTS);
+  const firstWeekStart = addWeeks(currentWeekStart, -(numWeeks - 1));
+
+  const weeks: CalendarWeek[] = [];
+  for (let w = 0; w < numWeeks; w++) {
+    const weekStart = addWeeks(firstWeekStart, w);
+    const week: CalendarDay[] = [];
+    for (let d = 0; d < 7; d++) {
+      const dateStr = format(addDays(weekStart, d), 'yyyy-MM-dd');
+      week.push({ date: dateStr, hasActivity: activeDates.has(dateStr), isFuture: dateStr > today });
+    }
+    weeks.push(week);
+  }
+  return weeks;
+}
+
 export function formatPace(secPerMile: number | null): string {
   if (secPerMile === null || !isFinite(secPerMile) || secPerMile <= 0) return '—';
   const min = Math.floor(secPerMile / 60);
