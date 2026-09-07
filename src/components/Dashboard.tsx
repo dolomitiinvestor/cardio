@@ -10,6 +10,7 @@ import {
   filterByTypes,
   formatDuration,
   loadRatioZone,
+  maxMonthlyMiles,
   monthlyPaceSummary,
   totalSecondsLast7Days,
   totalSecondsThisYear,
@@ -28,8 +29,21 @@ interface DashboardProps {
 
 type TypeFilter = 'run' | 'all' | CardioType;
 
+const TYPE_FILTER_LABELS: Record<TypeFilter, string> = {
+  run: 'Run',
+  all: 'All cardio',
+  Run: 'Run',
+  Bike: 'Bike',
+  Walk: 'Walk',
+  Elliptical: 'Elliptical',
+  Stairmaster: 'Stairmaster',
+  Hike: 'Hike',
+  Other: 'Other',
+};
+
 export default function Dashboard({ activities }: DashboardProps) {
   const [typeFilter, setTypeFilter] = useState<TypeFilter>('run');
+  const [filtersOpen, setFiltersOpen] = useState(false);
 
   const filtered = useMemo(() => {
     if (typeFilter === 'all') return activities;
@@ -41,6 +55,7 @@ export default function Dashboard({ activities }: DashboardProps) {
   const rollingLoad = useMemo(() => dailyRollingSeries(filtered, CHART_DAYS), [filtered]);
   const rollingLoadHours = useMemo(() => dailyRollingHoursSeries(activities, CHART_DAYS), [activities]);
   const monthlyPace = useMemo(() => monthlyPaceSummary(filtered, PACE_TABLE_MONTHS), [filtered]);
+  const bestMonth = useMemo(() => maxMonthlyMiles(filtered), [filtered]);
   const overload = useMemo(() => computeCumulativeOverload(filtered), [filtered]);
   const hoursLast7Days = useMemo(() => totalSecondsLast7Days(activities), [activities]);
   const hoursThisYear = useMemo(() => totalSecondsThisYear(activities), [activities]);
@@ -61,18 +76,30 @@ export default function Dashboard({ activities }: DashboardProps) {
 
   return (
     <div className="p-4 flex flex-col gap-4 pb-24">
-      <div className="flex items-center gap-2 overflow-x-auto pb-1 -mx-4 px-4">
-        <FilterChip active={typeFilter === 'run'} onClick={() => setTypeFilter('run')}>
-          Run
-        </FilterChip>
-        <FilterChip active={typeFilter === 'all'} onClick={() => setTypeFilter('all')}>
-          All cardio
-        </FilterChip>
-        {CARDIO_TYPES.filter((t) => t !== 'Run').map((t) => (
-          <FilterChip key={t} active={typeFilter === t} onClick={() => setTypeFilter(t)}>
-            {t}
-          </FilterChip>
-        ))}
+      <div className="flex flex-col gap-2">
+        <button
+          onClick={() => setFiltersOpen((open) => !open)}
+          className="flex items-center gap-1.5 self-start rounded-full px-3 py-1.5 text-sm font-medium border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 text-neutral-600 dark:text-neutral-300"
+          aria-expanded={filtersOpen}
+        >
+          <span>Cardio type: {TYPE_FILTER_LABELS[typeFilter]}</span>
+          <span className={`transition-transform ${filtersOpen ? 'rotate-180' : ''}`}>▾</span>
+        </button>
+        {filtersOpen && (
+          <div className="flex items-center gap-2 overflow-x-auto pb-1 -mx-4 px-4">
+            <FilterChip active={typeFilter === 'run'} onClick={() => setTypeFilter('run')}>
+              Run
+            </FilterChip>
+            <FilterChip active={typeFilter === 'all'} onClick={() => setTypeFilter('all')}>
+              All cardio
+            </FilterChip>
+            {CARDIO_TYPES.filter((t) => t !== 'Run').map((t) => (
+              <FilterChip key={t} active={typeFilter === t} onClick={() => setTypeFilter(t)}>
+                {t}
+              </FilterChip>
+            ))}
+          </div>
+        )}
       </div>
 
       <RiskBanner
@@ -192,6 +219,20 @@ export default function Dashboard({ activities }: DashboardProps) {
         </h2>
         <div className="rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-3">
           <MonthlyPaceTable months={monthlyPace} />
+        </div>
+      </section>
+
+      <section>
+        <h2 className="text-sm font-semibold text-neutral-500 dark:text-neutral-400 mb-2 uppercase tracking-wide">
+          Lifetime bests
+        </h2>
+        <div className="grid grid-cols-2 gap-2">
+          <StatCard
+            label="Max miles in a month"
+            value={bestMonth ? `${bestMonth.miles.toFixed(1)} mi` : '—'}
+            sublabel={bestMonth?.label}
+          />
+          <StatCard label="Longest run (lifetime)" value={`${stats.longestRunAllTime.toFixed(1)} mi`} />
         </div>
       </section>
 

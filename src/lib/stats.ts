@@ -276,6 +276,29 @@ export function monthlyPaceSummary(
   return months;
 }
 
+export interface MonthlyTotal {
+  monthKey: string; // yyyy-MM
+  label: string;
+  miles: number;
+}
+
+/** The single calendar month (lifetime) with the highest total mileage, or null if there's no data. */
+export function maxMonthlyMiles(activities: Activity[]): MonthlyTotal | null {
+  const byMonth = new Map<string, number>();
+  for (const a of activities) {
+    const key = a.date.slice(0, 7); // yyyy-MM
+    byMonth.set(key, (byMonth.get(key) ?? 0) + a.distanceMiles);
+  }
+
+  let best: MonthlyTotal | null = null;
+  for (const [key, miles] of byMonth) {
+    if (!best || miles > best.miles) {
+      best = { monthKey: key, label: format(parseISO(`${key}-01`), 'MMM yyyy'), miles };
+    }
+  }
+  return best;
+}
+
 export function formatPace(secPerMile: number | null): string {
   if (secPerMile === null || !isFinite(secPerMile) || secPerMile <= 0) return '—';
   const min = Math.floor(secPerMile / 60);
