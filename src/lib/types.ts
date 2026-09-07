@@ -1,20 +1,18 @@
 export type CardioType =
   | 'Run'
   | 'Bike'
-  | 'Swim'
   | 'Walk'
   | 'Elliptical'
-  | 'Row'
+  | 'Stairmaster'
   | 'Hike'
   | 'Other';
 
 export const CARDIO_TYPES: CardioType[] = [
   'Run',
   'Bike',
-  'Swim',
   'Walk',
   'Elliptical',
-  'Row',
+  'Stairmaster',
   'Hike',
   'Other',
 ];

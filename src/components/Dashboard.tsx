@@ -9,7 +9,6 @@ import {
   dailyRollingSeries,
   filterByTypes,
   formatDuration,
-  formatPace,
   loadRatioZone,
   totalSecondsInWeek,
   totalSecondsThisYear,
@@ -167,7 +166,6 @@ export default function Dashboard({ activities }: DashboardProps) {
           Pace &amp; totals
         </h2>
         <div className="grid grid-cols-3 gap-2">
-          <StatCard label="Avg pace" value={formatPace(stats.avgPaceSecPerMile)} />
           <StatCard label="This month" value={`${stats.totalMilesThisMonth.toFixed(1)} mi`} />
           <StatCard label="This year" value={`${stats.totalMilesThisYear.toFixed(1)} mi`} />
           <StatCard

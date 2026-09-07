@@ -82,17 +82,14 @@ const TYPE_ALIASES: Record<string, CardioType> = {
   ebikeride: 'Bike',
   mountainbikeride: 'Bike',
   gravelride: 'Bike',
-  swim: 'Swim',
-  swimming: 'Swim',
   walk: 'Walk',
   walking: 'Walk',
   hike: 'Hike',
   hiking: 'Hike',
   elliptical: 'Elliptical',
-  rowing: 'Row',
-  row: 'Row',
-  canoeing: 'Row',
-  kayaking: 'Row',
+  stairmaster: 'Stairmaster',
+  stairmill: 'Stairmaster',
+  stairclimber: 'Stairmaster',
 };
 
 export function normalizeType(raw: string): CardioType {
