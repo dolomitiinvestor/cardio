@@ -10,7 +10,7 @@ import {
   filterByTypes,
   formatDuration,
   loadRatioZone,
-  totalSecondsInWeek,
+  totalSecondsLast7Days,
   totalSecondsThisYear,
 } from '../lib/stats';
 import StatCard from './StatCard';
@@ -38,7 +38,7 @@ export default function Dashboard({ activities }: DashboardProps) {
   const rollingLoad = useMemo(() => dailyRollingSeries(filtered, CHART_DAYS), [filtered]);
   const rollingLoadHours = useMemo(() => dailyRollingHoursSeries(activities, CHART_DAYS), [activities]);
   const overload = useMemo(() => computeCumulativeOverload(filtered), [filtered]);
-  const hoursThisWeek = useMemo(() => totalSecondsInWeek(activities), [activities]);
+  const hoursLast7Days = useMemo(() => totalSecondsLast7Days(activities), [activities]);
   const hoursThisYear = useMemo(() => totalSecondsThisYear(activities), [activities]);
   const zone = loadRatioZone(stats.acwr);
   const overloadZone = loadRatioZone(overload.ratio);
@@ -91,20 +91,6 @@ export default function Dashboard({ activities }: DashboardProps) {
             sublabel="mi/week"
           />
           <StatCard
-            label="Vs. last week"
-            value={stats.weekOverWeekPct === null ? '—' : `${stats.weekOverWeekPct > 0 ? '+' : ''}${stats.weekOverWeekPct.toFixed(0)}%`}
-            sublabel={
-              stats.weekOverWeekPct !== null && Math.abs(stats.weekOverWeekPct) > 10
-                ? 'Keep increases under ~10%'
-                : undefined
-            }
-            tone={
-              stats.weekOverWeekPct !== null && stats.weekOverWeekPct > 10
-                ? 'caution'
-                : 'default'
-            }
-          />
-          <StatCard
             label="Vs. prior 7 days"
             value={
               stats.rollingWeekOverWeekPct === null
@@ -135,8 +121,8 @@ export default function Dashboard({ activities }: DashboardProps) {
             tone={overloadZone.tone}
           />
           <StatCard
-            label="Hours this week"
-            value={formatDuration(hoursThisWeek)}
+            label="Hours L7D"
+            value={formatDuration(hoursLast7Days)}
             sublabel="All cardio types"
           />
         </div>
