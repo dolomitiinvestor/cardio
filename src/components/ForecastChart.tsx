@@ -87,7 +87,14 @@ export default function ForecastChart({ data }: ForecastChartProps) {
             {todayLabel && (
               <ReferenceLine x={todayLabel} stroke="currentColor" className="text-neutral-300 dark:text-neutral-700" />
             )}
-            <Line dataKey="l7Actual" name={SERIES_NAMES.l7Actual} stroke="#7c3aed" strokeWidth={2} dot={false} />
+            <Line
+              dataKey="l7Actual"
+              name={SERIES_NAMES.l7Actual}
+              stroke="#7c3aed"
+              strokeWidth={2}
+              dot={false}
+              isAnimationActive={false}
+            />
             <Line
               dataKey="l7Planned"
               name={SERIES_NAMES.l7Planned}
@@ -96,8 +103,16 @@ export default function ForecastChart({ data }: ForecastChartProps) {
               strokeDasharray="6 4"
               dot={false}
               connectNulls
+              isAnimationActive={false}
             />
-            <Line dataKey="l28Actual" name={SERIES_NAMES.l28Actual} stroke="#f59e0b" strokeWidth={2} dot={false} />
+            <Line
+              dataKey="l28Actual"
+              name={SERIES_NAMES.l28Actual}
+              stroke="#f59e0b"
+              strokeWidth={2}
+              dot={false}
+              isAnimationActive={false}
+            />
             <Line
               dataKey="l28Planned"
               name={SERIES_NAMES.l28Planned}
@@ -106,6 +121,7 @@ export default function ForecastChart({ data }: ForecastChartProps) {
               strokeDasharray="6 4"
               dot={false}
               connectNulls
+              isAnimationActive={false}
             />
           </LineChart>
         </ResponsiveContainer>

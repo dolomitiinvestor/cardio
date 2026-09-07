@@ -1,5 +1,6 @@
 import {
   addDays,
+  addMonths,
   addWeeks,
   differenceInCalendarDays,
   eachWeekOfInterval,
@@ -234,6 +235,45 @@ function endOfDay(d: Date): Date {
   const c = new Date(d);
   c.setHours(23, 59, 59, 999);
   return c;
+}
+
+export interface MonthlyPaceSummary {
+  monthKey: string; // yyyy-MM
+  label: string;
+  miles: number;
+  seconds: number;
+  avgPaceSecPerMile: number | null;
+}
+
+/** Buckets activities by calendar month and returns the last `numMonths` months (oldest first, including the current month). */
+export function monthlyPaceSummary(
+  activities: Activity[],
+  numMonths: number,
+  referenceDate = new Date(),
+): MonthlyPaceSummary[] {
+  const byMonth = new Map<string, { miles: number; seconds: number }>();
+  for (const a of activities) {
+    const key = a.date.slice(0, 7); // yyyy-MM
+    const existing = byMonth.get(key) ?? { miles: 0, seconds: 0 };
+    existing.miles += a.distanceMiles;
+    existing.seconds += a.durationSeconds;
+    byMonth.set(key, existing);
+  }
+
+  const months: MonthlyPaceSummary[] = [];
+  for (let i = numMonths - 1; i >= 0; i--) {
+    const monthDate = addMonths(referenceDate, -i);
+    const key = format(monthDate, 'yyyy-MM');
+    const existing = byMonth.get(key);
+    months.push({
+      monthKey: key,
+      label: format(monthDate, 'MMM yyyy'),
+      miles: existing?.miles ?? 0,
+      seconds: existing?.seconds ?? 0,
+      avgPaceSecPerMile: existing ? paceSecPerMile(existing.seconds, existing.miles) : null,
+    });
+  }
+  return months;
 }
 
 export function formatPace(secPerMile: number | null): string {

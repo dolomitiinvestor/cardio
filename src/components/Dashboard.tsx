@@ -10,14 +10,17 @@ import {
   filterByTypes,
   formatDuration,
   loadRatioZone,
+  monthlyPaceSummary,
   totalSecondsLast7Days,
   totalSecondsThisYear,
 } from '../lib/stats';
 import StatCard from './StatCard';
 import RollingLoadChart from './RollingLoadChart';
+import MonthlyPaceTable from './MonthlyPaceTable';
 import RiskBanner from './RiskBanner';
 
 const CHART_DAYS = 365;
+const PACE_TABLE_MONTHS = 6;
 
 interface DashboardProps {
   activities: Activity[];
@@ -37,6 +40,7 @@ export default function Dashboard({ activities }: DashboardProps) {
   const stats = useMemo(() => computeRollingStats(filtered), [filtered]);
   const rollingLoad = useMemo(() => dailyRollingSeries(filtered, CHART_DAYS), [filtered]);
   const rollingLoadHours = useMemo(() => dailyRollingHoursSeries(activities, CHART_DAYS), [activities]);
+  const monthlyPace = useMemo(() => monthlyPaceSummary(filtered, PACE_TABLE_MONTHS), [filtered]);
   const overload = useMemo(() => computeCumulativeOverload(filtered), [filtered]);
   const hoursLast7Days = useMemo(() => totalSecondsLast7Days(activities), [activities]);
   const hoursThisYear = useMemo(() => totalSecondsThisYear(activities), [activities]);
@@ -179,6 +183,15 @@ export default function Dashboard({ activities }: DashboardProps) {
         </h2>
         <div className="rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-2">
           <RollingLoadChart mpwData={rollingLoad} hoursData={rollingLoadHours} />
+        </div>
+      </section>
+
+      <section>
+        <h2 className="text-sm font-semibold text-neutral-500 dark:text-neutral-400 mb-2 uppercase tracking-wide">
+          Avg pace/mo (last {PACE_TABLE_MONTHS} months)
+        </h2>
+        <div className="rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-3">
+          <MonthlyPaceTable months={monthlyPace} />
         </div>
       </section>
 
