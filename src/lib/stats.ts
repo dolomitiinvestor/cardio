@@ -299,6 +299,38 @@ export function maxMonthlyMiles(activities: Activity[]): MonthlyTotal | null {
   return best;
 }
 
+export interface CalendarDay {
+  date: string; // yyyy-MM-dd
+  hasActivity: boolean;
+  isFuture: boolean;
+}
+
+export type CalendarWeek = CalendarDay[]; // Monday-first, 7 entries
+
+/** Mon-Sun grid of the last `numWeeks` weeks (oldest first, ending with the current week) marking which days had an activity. */
+export function activityCalendar(
+  activities: Activity[],
+  numWeeks: number,
+  referenceDate = new Date(),
+): CalendarWeek[] {
+  const activeDates = new Set(activities.map((a) => a.date));
+  const today = format(referenceDate, 'yyyy-MM-dd');
+  const currentWeekStart = startOfWeek(referenceDate, WEEK_OPTS);
+  const firstWeekStart = addWeeks(currentWeekStart, -(numWeeks - 1));
+
+  const weeks: CalendarWeek[] = [];
+  for (let w = 0; w < numWeeks; w++) {
+    const weekStart = addWeeks(firstWeekStart, w);
+    const week: CalendarDay[] = [];
+    for (let d = 0; d < 7; d++) {
+      const dateStr = format(addDays(weekStart, d), 'yyyy-MM-dd');
+      week.push({ date: dateStr, hasActivity: activeDates.has(dateStr), isFuture: dateStr > today });
+    }
+    weeks.push(week);
+  }
+  return weeks;
+}
+
 export function formatPace(secPerMile: number | null): string {
   if (secPerMile === null || !isFinite(secPerMile) || secPerMile <= 0) return '—';
   const min = Math.floor(secPerMile / 60);

@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import type { Activity, CardioType } from '../lib/types';
 import { CARDIO_TYPES } from '../lib/types';
 import {
+  activityCalendar,
   combinedRiskStatus,
   computeCumulativeOverload,
   computeRollingStats,
@@ -18,10 +19,12 @@ import {
 import StatCard from './StatCard';
 import RollingLoadChart from './RollingLoadChart';
 import MonthlyPaceTable from './MonthlyPaceTable';
+import ActivityCalendar from './ActivityCalendar';
 import RiskBanner from './RiskBanner';
 
 const CHART_DAYS = 365;
 const PACE_TABLE_MONTHS = 6;
+const CALENDAR_WEEKS = 8;
 
 interface DashboardProps {
   activities: Activity[];
@@ -56,6 +59,7 @@ export default function Dashboard({ activities }: DashboardProps) {
   const rollingLoadHours = useMemo(() => dailyRollingHoursSeries(activities, CHART_DAYS), [activities]);
   const monthlyPace = useMemo(() => monthlyPaceSummary(filtered, PACE_TABLE_MONTHS), [filtered]);
   const bestMonth = useMemo(() => maxMonthlyMiles(filtered), [filtered]);
+  const calendarWeeks = useMemo(() => activityCalendar(filtered, CALENDAR_WEEKS), [filtered]);
   const overload = useMemo(() => computeCumulativeOverload(filtered), [filtered]);
   const hoursLast7Days = useMemo(() => totalSecondsLast7Days(activities), [activities]);
   const hoursThisYear = useMemo(() => totalSecondsThisYear(activities), [activities]);
@@ -219,6 +223,15 @@ export default function Dashboard({ activities }: DashboardProps) {
         </h2>
         <div className="rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-3">
           <MonthlyPaceTable months={monthlyPace} />
+        </div>
+      </section>
+
+      <section>
+        <h2 className="text-sm font-semibold text-neutral-500 dark:text-neutral-400 mb-2 uppercase tracking-wide">
+          Workout days (last {CALENDAR_WEEKS} weeks)
+        </h2>
+        <div className="rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-3">
+          <ActivityCalendar weeks={calendarWeeks} />
         </div>
       </section>
 
