@@ -450,6 +450,17 @@ export function totalSecondsInWeek(activities: Activity[], referenceDate = new D
     .reduce((s, a) => s + a.durationSeconds, 0);
 }
 
+/** Total time (seconds) across all given activities in the trailing 7 days (including today). */
+export function totalSecondsLast7Days(activities: Activity[], referenceDate = new Date()): number {
+  const sevenDaysAgo = subDays(referenceDate, 6);
+  return activities
+    .filter((a) => {
+      const d = toDate(a.date);
+      return !isBefore(d, startOfDay(sevenDaysAgo)) && !isAfter(d, endOfDay(referenceDate));
+    })
+    .reduce((s, a) => s + a.durationSeconds, 0);
+}
+
 /** Total time (seconds) across all given activities that fall within the current calendar year. */
 export function totalSecondsThisYear(activities: Activity[], referenceDate = new Date()): number {
   const yearStart = format(referenceDate, 'yyyy-01-01');
