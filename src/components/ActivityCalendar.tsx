@@ -19,20 +19,22 @@ export default function ActivityCalendar({ weeks }: ActivityCalendarProps) {
           </span>
         ))}
       </div>
-      <div className="flex flex-col gap-2.5">
+      <div className="flex flex-col gap-2">
         {weeks.map((week) => (
           <div key={week[0].date} className="grid grid-cols-7">
             {week.map((day) => (
               <div key={day.date} className="flex items-center justify-center">
                 <span
-                  className={
+                  className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-medium ${
                     day.isFuture
-                      ? 'w-1.5 h-1.5 rounded-full bg-neutral-100 dark:bg-neutral-800'
+                      ? 'bg-neutral-50 text-neutral-300 dark:bg-neutral-900 dark:text-neutral-600'
                       : day.hasActivity
-                        ? 'w-3 h-3 rounded-full bg-neutral-900 dark:bg-neutral-50'
-                        : 'w-1.5 h-1.5 rounded-full bg-neutral-300 dark:bg-neutral-700'
-                  }
-                />
+                        ? 'bg-neutral-900 text-white dark:bg-neutral-50 dark:text-neutral-900'
+                        : 'bg-neutral-100 text-neutral-500 dark:bg-neutral-800 dark:text-neutral-400'
+                  } ${day.isToday ? 'ring-2 ring-green-500 ring-offset-1 ring-offset-white dark:ring-offset-neutral-900' : ''}`}
+                >
+                  {Number(day.date.slice(-2))}
+                </span>
               </div>
             ))}
           </div>

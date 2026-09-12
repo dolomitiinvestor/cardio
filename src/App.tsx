@@ -17,12 +17,12 @@ import {
 
 type Tab = 'dashboard' | 'log' | 'forecast' | 'history' | 'settings';
 
-const TABS: { id: Tab; label: string; icon: string }[] = [
-  { id: 'dashboard', label: 'Dashboard', icon: '📊' },
-  { id: 'log', label: 'Log', icon: '➕' },
-  { id: 'forecast', label: 'Forecast', icon: '🔮' },
-  { id: 'history', label: 'History', icon: '📋' },
-  { id: 'settings', label: 'Settings', icon: '⚙️' },
+const TABS: { id: Tab; label: string }[] = [
+  { id: 'dashboard', label: 'Dashboard' },
+  { id: 'log', label: 'Log' },
+  { id: 'forecast', label: 'Forecast' },
+  { id: 'history', label: 'History' },
+  { id: 'settings', label: 'Settings' },
 ];
 
 export default function App() {
@@ -83,18 +83,19 @@ export default function App() {
       </main>
 
       <nav
-        className="fixed bottom-0 left-0 right-0 bg-white/95 dark:bg-neutral-900/95 backdrop-blur border-t border-neutral-200 dark:border-neutral-800 flex"
-        style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
+        className="fixed bottom-0 left-0 right-0 bg-white/95 dark:bg-neutral-900/95 backdrop-blur border-t border-neutral-200 dark:border-neutral-800 flex gap-1.5 px-1.5 pt-1.5"
+        style={{ paddingBottom: 'calc(0.375rem + env(safe-area-inset-bottom))' }}
       >
         {TABS.map((t) => (
           <button
             key={t.id}
             onClick={() => setTab(t.id)}
-            className={`flex-1 flex flex-col items-center gap-0.5 py-2 text-xs font-medium ${
-              tab === t.id ? 'text-violet-600 dark:text-violet-400' : 'text-neutral-400 dark:text-neutral-500'
+            className={`flex-1 rounded-lg py-2 text-xs font-semibold transition-colors ${
+              tab === t.id
+                ? 'bg-violet-600 text-white shadow-sm'
+                : 'bg-neutral-100 text-neutral-500 dark:bg-neutral-800 dark:text-neutral-400'
             }`}
           >
-            <span className="text-lg leading-none">{t.icon}</span>
             {t.label}
           </button>
         ))}
