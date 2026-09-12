@@ -169,7 +169,6 @@ export default function Dashboard({ activities }: DashboardProps) {
         </h2>
         <div className="grid grid-cols-2 gap-2">
           <StatCard label="Longest run (4 wks)" value={`${stats.longestRunLast4Weeks.toFixed(1)} mi`} />
-          <StatCard label="Longest run (all-time)" value={`${stats.longestRunAllTime.toFixed(1)} mi`} />
           <StatCard
             label="Long run % (7 days)"
             value={stats.longRunShareOfWeekPct === null ? '—' : `${stats.longRunShareOfWeekPct.toFixed(0)}%`}
@@ -202,8 +201,8 @@ export default function Dashboard({ activities }: DashboardProps) {
           Lifetime
         </h2>
         <div className="grid grid-cols-3 gap-2">
-          <StatCard label="Time exercised" value={formatDuration(stats.totalSecondsAllTime)} />
           <StatCard label="Miles logged" value={`${stats.totalMilesAllTime.toFixed(1)} mi`} />
+          <StatCard label="Time exercised" value={formatDuration(stats.totalSecondsAllTime)} />
           <StatCard label="Activities logged" value={`${stats.totalActivityCount}`} />
         </div>
       </section>
