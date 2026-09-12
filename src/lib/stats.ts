@@ -303,6 +303,7 @@ export interface CalendarDay {
   date: string; // yyyy-MM-dd
   hasActivity: boolean;
   isFuture: boolean;
+  isToday: boolean;
 }
 
 export type CalendarWeek = CalendarDay[]; // Monday-first, 7 entries
@@ -324,7 +325,12 @@ export function activityCalendar(
     const week: CalendarDay[] = [];
     for (let d = 0; d < 7; d++) {
       const dateStr = format(addDays(weekStart, d), 'yyyy-MM-dd');
-      week.push({ date: dateStr, hasActivity: activeDates.has(dateStr), isFuture: dateStr > today });
+      week.push({
+        date: dateStr,
+        hasActivity: activeDates.has(dateStr),
+        isFuture: dateStr > today,
+        isToday: dateStr === today,
+      });
     }
     weeks.push(week);
   }
