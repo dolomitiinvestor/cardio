@@ -167,7 +167,7 @@ export default function Dashboard({ activities }: DashboardProps) {
         <h2 className="text-sm font-semibold text-neutral-500 dark:text-neutral-400 mb-2 uppercase tracking-wide">
           Training volume
         </h2>
-        <div className="grid grid-cols-2 gap-2">
+        <div className="grid grid-cols-3 gap-2">
           <StatCard label="Longest run (4 wks)" value={`${stats.longestRunLast4Weeks.toFixed(1)} mi`} />
           <StatCard
             label="Long run % (7 days)"
