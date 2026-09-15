@@ -90,7 +90,7 @@ export default function App() {
           <button
             key={t.id}
             onClick={() => setTab(t.id)}
-            className={`flex-1 rounded-lg py-2 text-xs font-semibold transition-colors ${
+            className={`flex-1 rounded-lg py-4 text-xs font-semibold transition-colors ${
               tab === t.id
                 ? 'bg-violet-600 text-white shadow-sm'
                 : 'bg-neutral-100 text-neutral-500 dark:bg-neutral-800 dark:text-neutral-400'

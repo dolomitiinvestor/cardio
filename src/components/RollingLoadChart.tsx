@@ -8,6 +8,7 @@ interface RollingLoadChartProps {
 }
 
 type Metric = 'mpw' | 'hours';
+type View = 'graph' | 'table';
 
 interface ChartPoint {
   label: string;
@@ -27,6 +28,7 @@ const VISIBLE_DAYS = 180;
 
 export default function RollingLoadChart({ mpwData, hoursData }: RollingLoadChartProps) {
   const [metric, setMetric] = useState<Metric>('mpw');
+  const [view, setView] = useState<View>('graph');
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const data: ChartPoint[] = useMemo(() => {
@@ -62,15 +64,29 @@ export default function RollingLoadChart({ mpwData, hoursData }: RollingLoadChar
 
   return (
     <div className="flex flex-col gap-1">
-      <div className="flex items-center justify-end gap-1">
-        <MetricToggleButton active={metric === 'mpw'} onClick={() => setMetric('mpw')}>
-          MPW
-        </MetricToggleButton>
-        <MetricToggleButton active={metric === 'hours'} onClick={() => setMetric('hours')}>
-          Hours
-        </MetricToggleButton>
+      <div className="flex items-center justify-between gap-1">
+        <div className="flex items-center gap-1">
+          <MetricToggleButton active={view === 'graph'} onClick={() => setView('graph')}>
+            Graph
+          </MetricToggleButton>
+          <MetricToggleButton active={view === 'table'} onClick={() => setView('table')}>
+            Table
+          </MetricToggleButton>
+        </div>
+        <div className="flex items-center gap-1">
+          <MetricToggleButton active={metric === 'mpw'} onClick={() => setMetric('mpw')}>
+            MPW
+          </MetricToggleButton>
+          <MetricToggleButton active={metric === 'hours'} onClick={() => setMetric('hours')}>
+            Hours
+          </MetricToggleButton>
+        </div>
       </div>
 
+      {view === 'table' ? (
+        <TrainingLoadTable data={mpwData} />
+      ) : (
+        <>
       <div className="flex">
         {/* Pinned y-axis, kept out of the scrolling area so it's always visible. */}
         <LineChart
@@ -144,6 +160,45 @@ export default function RollingLoadChart({ mpwData, hoursData }: RollingLoadChar
           Scroll left to see older data
         </p>
       )}
+        </>
+      )}
+    </div>
+  );
+}
+
+function TrainingLoadTable({ data }: { data: DailyLoadPoint[] }) {
+  const rows = [...data].reverse();
+  return (
+    <div className="max-h-64 overflow-y-auto rounded-lg border border-neutral-200 dark:border-neutral-800">
+      <table className="w-full text-xs">
+        <thead className="sticky top-0 bg-neutral-50 dark:bg-neutral-900">
+          <tr className="text-left text-neutral-500 dark:text-neutral-400">
+            <th className="px-2 py-1.5 font-medium">Date</th>
+            <th className="px-2 py-1.5 font-medium text-right">Miles</th>
+            <th className="px-2 py-1.5 font-medium text-right">L7D avg</th>
+            <th className="px-2 py-1.5 font-medium text-right">L28D avg</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row) => (
+            <tr
+              key={row.date}
+              className="border-t border-neutral-100 dark:border-neutral-800 tabular-nums"
+            >
+              <td className="px-2 py-1.5 text-neutral-700 dark:text-neutral-300">{row.label}</td>
+              <td className="px-2 py-1.5 text-right text-neutral-900 dark:text-neutral-50">
+                {row.miles.toFixed(1)}
+              </td>
+              <td className="px-2 py-1.5 text-right text-neutral-500 dark:text-neutral-400">
+                {row.acute7MPW.toFixed(1)}
+              </td>
+              <td className="px-2 py-1.5 text-right text-neutral-500 dark:text-neutral-400">
+                {row.chronic28MPW.toFixed(1)}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   );
 }

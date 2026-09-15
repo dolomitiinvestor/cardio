@@ -447,6 +447,7 @@ export function computeCumulativeOverload(
 export interface DailyLoadPoint {
   date: string; // yyyy-MM-dd
   label: string;
+  miles: number; // that day's own mileage (not rolling)
   acute7MPW: number; // trailing 7-day mileage, i.e. that day's rolling "miles per week"
   chronic28MPW: number; // trailing 28-day mileage / 4, i.e. rolling 4-week average MPW
 }
@@ -466,6 +467,14 @@ export function dailyRollingSeries(
   for (let i = numDays - 1; i >= 0; i--) {
     const day = subDays(referenceDate, i);
     const dayEnd = endOfDay(day);
+    const dayStart = startOfDay(day);
+
+    const dayMiles = activities
+      .filter((a) => {
+        const d = toDate(a.date);
+        return !isBefore(d, dayStart) && !isAfter(d, dayEnd);
+      })
+      .reduce((s, a) => s + a.distanceMiles, 0);
 
     const acute7Start = startOfDay(subDays(day, 6));
     const acute7MPW = activities
@@ -486,6 +495,7 @@ export function dailyRollingSeries(
     points.push({
       date: format(day, 'yyyy-MM-dd'),
       label: format(day, 'MMM d'),
+      miles: Math.round(dayMiles * 10) / 10,
       acute7MPW: Math.round(acute7MPW * 10) / 10,
       chronic28MPW: Math.round((chronic28Total / 4) * 10) / 10,
     });
