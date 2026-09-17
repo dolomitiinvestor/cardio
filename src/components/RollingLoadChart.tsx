@@ -84,7 +84,11 @@ export default function RollingLoadChart({ mpwData, hoursData }: RollingLoadChar
       </div>
 
       {view === 'table' ? (
-        <TrainingLoadTable data={mpwData} />
+        metric === 'mpw' ? (
+          <MileageLoadTable data={mpwData} />
+        ) : (
+          <HoursLoadTable data={hoursData} />
+        )
       ) : (
         <>
       <div className="flex">
@@ -166,7 +170,7 @@ export default function RollingLoadChart({ mpwData, hoursData }: RollingLoadChar
   );
 }
 
-function TrainingLoadTable({ data }: { data: DailyLoadPoint[] }) {
+function MileageLoadTable({ data }: { data: DailyLoadPoint[] }) {
   const rows = [...data].reverse();
   return (
     <div className="max-h-64 overflow-y-auto rounded-lg border border-neutral-200 dark:border-neutral-800">
@@ -194,6 +198,43 @@ function TrainingLoadTable({ data }: { data: DailyLoadPoint[] }) {
               </td>
               <td className="px-2 py-1.5 text-right text-neutral-500 dark:text-neutral-400">
                 {row.chronic28MPW.toFixed(1)}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function HoursLoadTable({ data }: { data: DailyHoursPoint[] }) {
+  const rows = [...data].reverse();
+  return (
+    <div className="max-h-64 overflow-y-auto rounded-lg border border-neutral-200 dark:border-neutral-800">
+      <table className="w-full text-xs">
+        <thead className="sticky top-0 bg-neutral-50 dark:bg-neutral-900">
+          <tr className="text-left text-neutral-500 dark:text-neutral-400">
+            <th className="px-2 py-1.5 font-medium">Date</th>
+            <th className="px-2 py-1.5 font-medium text-right">Hours</th>
+            <th className="px-2 py-1.5 font-medium text-right">L7D avg</th>
+            <th className="px-2 py-1.5 font-medium text-right">L28D avg</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row) => (
+            <tr
+              key={row.date}
+              className="border-t border-neutral-100 dark:border-neutral-800 tabular-nums"
+            >
+              <td className="px-2 py-1.5 text-neutral-700 dark:text-neutral-300">{row.label}</td>
+              <td className="px-2 py-1.5 text-right text-neutral-900 dark:text-neutral-50">
+                {row.hours.toFixed(1)}
+              </td>
+              <td className="px-2 py-1.5 text-right text-neutral-500 dark:text-neutral-400">
+                {row.acute7Hours.toFixed(1)}
+              </td>
+              <td className="px-2 py-1.5 text-right text-neutral-500 dark:text-neutral-400">
+                {row.chronic28Hours.toFixed(1)}
               </td>
             </tr>
           ))}

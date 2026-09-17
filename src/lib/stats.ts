@@ -506,6 +506,7 @@ export function dailyRollingSeries(
 export interface DailyHoursPoint {
   date: string; // yyyy-MM-dd
   label: string;
+  hours: number; // that day's own hours (not rolling)
   acute7Hours: number; // trailing 7-day hours, i.e. that day's rolling weekly hours
   chronic28Hours: number; // trailing 28-day hours / 4, i.e. rolling 4-week average weekly hours
 }
@@ -525,6 +526,14 @@ export function dailyRollingHoursSeries(
   for (let i = numDays - 1; i >= 0; i--) {
     const day = subDays(referenceDate, i);
     const dayEnd = endOfDay(day);
+    const dayStart = startOfDay(day);
+
+    const daySeconds = activities
+      .filter((a) => {
+        const d = toDate(a.date);
+        return !isBefore(d, dayStart) && !isAfter(d, dayEnd);
+      })
+      .reduce((s, a) => s + a.durationSeconds, 0);
 
     const acute7Start = startOfDay(subDays(day, 6));
     const acute7Seconds = activities
@@ -545,6 +554,7 @@ export function dailyRollingHoursSeries(
     points.push({
       date: format(day, 'yyyy-MM-dd'),
       label: format(day, 'MMM d'),
+      hours: Math.round((daySeconds / 3600) * 10) / 10,
       acute7Hours: Math.round((acute7Seconds / 3600) * 10) / 10,
       chronic28Hours: Math.round((chronic28Seconds / 3600 / 4) * 10) / 10,
     });

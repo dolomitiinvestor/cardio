@@ -59,7 +59,7 @@ export default function Dashboard({ activities }: DashboardProps) {
   const rollingLoadHours = useMemo(() => dailyRollingHoursSeries(activities, CHART_DAYS), [activities]);
   const monthlyPace = useMemo(() => monthlyPaceSummary(filtered, PACE_TABLE_MONTHS), [filtered]);
   const bestMonth = useMemo(() => maxMonthlyMiles(filtered), [filtered]);
-  const calendarWeeks = useMemo(() => activityCalendar(filtered, CALENDAR_WEEKS), [filtered]);
+  const calendarWeeks = useMemo(() => activityCalendar(activities, CALENDAR_WEEKS), [activities]);
   const overload = useMemo(() => computeCumulativeOverload(filtered), [filtered]);
   const hoursLast7Days = useMemo(() => totalSecondsLast7Days(activities), [activities]);
   const hoursThisYear = useMemo(() => totalSecondsThisYear(activities), [activities]);
@@ -231,6 +231,9 @@ export default function Dashboard({ activities }: DashboardProps) {
         </h2>
         <div className="rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-3">
           <ActivityCalendar weeks={calendarWeeks} />
+          <p className="mt-2 text-center text-xs text-neutral-400 dark:text-neutral-600">
+            All cardio types, regardless of the filter above
+          </p>
         </div>
       </section>
 
