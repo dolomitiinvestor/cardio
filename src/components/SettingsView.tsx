@@ -7,6 +7,7 @@ import { clearGistConfig, getGistConfig, pullFromGist, pushToGist, saveGistConfi
 interface SettingsViewProps {
   activityCount: number;
   onExport: () => string;
+  onExportCsv: () => string;
   onRestoreBackup: (json: string) => void;
   onClearAll: () => void;
   onImportCsv: (activities: NewActivity[]) => { added: number; skipped: number };
@@ -15,6 +16,7 @@ interface SettingsViewProps {
 export default function SettingsView({
   activityCount,
   onExport,
+  onExportCsv,
   onRestoreBackup,
   onClearAll,
   onImportCsv,
@@ -38,15 +40,24 @@ export default function SettingsView({
   const [gistMessage, setGistMessage] = useState<string | null>(null);
   const [confirmPull, setConfirmPull] = useState(false);
 
-  function handleExport() {
-    const json = onExport();
-    const blob = new Blob([json], { type: 'application/json' });
+  function downloadFile(content: string, filename: string, type: string) {
+    const blob = new Blob([content], { type });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `cardio-tracker-backup-${new Date().toISOString().slice(0, 10)}.json`;
+    a.download = filename;
     a.click();
     URL.revokeObjectURL(url);
+  }
+
+  function handleExport() {
+    const today = new Date().toISOString().slice(0, 10);
+    downloadFile(onExport(), `cardio-tracker-backup-${today}.json`, 'application/json');
+  }
+
+  function handleExportCsv() {
+    const today = new Date().toISOString().slice(0, 10);
+    downloadFile(onExportCsv(), `cardio-tracker-backup-${today}.csv`, 'text/csv');
   }
 
   async function handleRestoreFile(file: File) {
@@ -274,13 +285,20 @@ export default function SettingsView({
         <h3 className="text-sm font-semibold text-neutral-900 dark:text-neutral-50">Backup</h3>
         <p className="text-xs text-neutral-500 dark:text-neutral-400">
           Your data lives only in this browser. Export a backup occasionally, especially before deleting
-          the app or clearing Safari data.
+          the app or clearing Safari data. The .json backup restores exactly via "Restore from backup"
+          below; the .csv is for opening in a spreadsheet (Google Sheets, Excel) and isn't used to restore.
         </p>
         <button
           onClick={handleExport}
           className="rounded-lg border border-neutral-300 dark:border-neutral-700 py-2.5 text-sm font-semibold text-neutral-900 dark:text-neutral-50"
         >
           Export backup (.json)
+        </button>
+        <button
+          onClick={handleExportCsv}
+          className="rounded-lg border border-neutral-300 dark:border-neutral-700 py-2.5 text-sm font-semibold text-neutral-900 dark:text-neutral-50"
+        >
+          Export as spreadsheet (.csv)
         </button>
         <label className="rounded-lg border border-neutral-300 dark:border-neutral-700 py-2.5 text-sm font-semibold text-neutral-900 dark:text-neutral-50 text-center cursor-pointer">
           Restore from backup

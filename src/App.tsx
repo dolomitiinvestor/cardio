@@ -10,6 +10,7 @@ import {
   addActivity,
   deleteActivity,
   deleteAllActivities,
+  exportActivitiesCsv,
   exportActivitiesJson,
   getActivities,
   importActivitiesJson,
@@ -75,6 +76,7 @@ export default function App() {
           <SettingsView
             activityCount={activities.length}
             onExport={exportActivitiesJson}
+            onExportCsv={exportActivitiesCsv}
             onRestoreBackup={handleRestore}
             onClearAll={handleClearAll}
             onImportCsv={handleImport}
