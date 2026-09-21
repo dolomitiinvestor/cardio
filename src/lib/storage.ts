@@ -151,6 +151,30 @@ export function exportActivitiesJson(): string {
   return JSON.stringify({ activities: readAll(), dailyPlan: readDailyPlan() }, null, 2);
 }
 
+function csvField(value: string | number): string {
+  const s = String(value);
+  return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+}
+
+// Human-readable, spreadsheet-friendly export. One-way: re-importing goes through
+// the CSV import flow, not a lossless restore like the JSON backup.
+export function exportActivitiesCsv(): string {
+  const header = ['date', 'type', 'distanceMiles', 'durationMinutes', 'notes', 'source'];
+  const rows = getActivities().map((a) =>
+    [
+      a.date,
+      a.type,
+      a.distanceMiles.toFixed(2),
+      (a.durationSeconds / 60).toFixed(1),
+      a.notes ?? '',
+      a.source,
+    ]
+      .map(csvField)
+      .join(','),
+  );
+  return [header.join(','), ...rows].join('\n');
+}
+
 export function importActivitiesJson(json: string): void {
   const parsed = JSON.parse(json);
   if (Array.isArray(parsed)) {
