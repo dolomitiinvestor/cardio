@@ -5,9 +5,9 @@ mkdirSync('public/icons', { recursive: true });
 
 const svg = `
 <svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
-  <rect width="512" height="512" rx="96" fill="#7c3aed"/>
+  <rect width="512" height="512" rx="96" fill="#000000"/>
   <path d="M120 340 L190 340 L220 260 L260 400 L300 220 L330 340 L392 340"
-    stroke="white" stroke-width="26" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+    stroke="#FFFFFF" stroke-width="26" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
 </svg>
 `;
 
@@ -27,7 +27,7 @@ for (const t of targets) {
         bottom: Math.round(t.size * 0.15),
         left: Math.round(t.size * 0.15),
         right: Math.round(t.size * 0.15),
-        background: '#7c3aed',
+        background: '#000000',
       })
       .png()
       .toFile(t.file);
