@@ -8,6 +8,33 @@ export interface DailyPlanEntry {
   miles: number;
 }
 
+// ---- Change notifications (used by Gist auto-sync to push after edits) ----
+
+const changeListeners = new Set<() => void>();
+let changeEventsMuted = 0;
+
+export function onDataChange(listener: () => void): () => void {
+  changeListeners.add(listener);
+  return () => {
+    changeListeners.delete(listener);
+  };
+}
+
+function notifyChange() {
+  if (changeEventsMuted === 0) changeListeners.forEach((l) => l());
+}
+
+// Runs fn without firing change events — for writes that come *from* a sync,
+// so they don't immediately trigger a push back.
+export function withoutChangeEvents<T>(fn: () => T): T {
+  changeEventsMuted++;
+  try {
+    return fn();
+  } finally {
+    changeEventsMuted--;
+  }
+}
+
 function readAll(): Activity[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
@@ -22,6 +49,7 @@ function readAll(): Activity[] {
 
 function writeAll(activities: Activity[]) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(activities));
+  notifyChange();
 }
 
 export function getActivities(): Activity[] {
@@ -121,6 +149,7 @@ function readDailyPlan(): DailyPlanEntry[] {
 
 function writeDailyPlan(plan: DailyPlanEntry[]) {
   localStorage.setItem(DAILY_PLAN_KEY, JSON.stringify(plan));
+  notifyChange();
 }
 
 export function getDailyPlan(): DailyPlanEntry[] {
@@ -187,4 +216,22 @@ export function importActivitiesJson(json: string): void {
   }
   writeAll(parsed.activities);
   if (Array.isArray(parsed.dailyPlan)) writeDailyPlan(parsed.dailyPlan);
+}
+
+// Merges a backup into local data instead of replacing it: union of
+// activities by id and plan entries by date, local copies winning on clashes.
+export function mergeActivitiesJson(json: string): void {
+  const parsed = JSON.parse(json);
+  const remoteActivities: Activity[] = Array.isArray(parsed) ? parsed : parsed?.activities;
+  if (!Array.isArray(remoteActivities)) throw new Error('Invalid backup file');
+
+  const local = readAll();
+  const localIds = new Set(local.map((a) => a.id));
+  writeAll([...local, ...remoteActivities.filter((a) => !localIds.has(a.id))]);
+
+  if (!Array.isArray(parsed) && Array.isArray(parsed.dailyPlan)) {
+    const localPlan = readDailyPlan();
+    const localDates = new Set(localPlan.map((p) => p.date));
+    writeDailyPlan([...localPlan, ...(parsed.dailyPlan as DailyPlanEntry[]).filter((p) => !localDates.has(p.date))]);
+  }
 }

@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import Dashboard from './components/Dashboard';
 import LogForm from './components/LogForm';
 import ForecastView from './components/ForecastView';
@@ -14,7 +14,13 @@ import {
   exportActivitiesJson,
   getActivities,
   importActivitiesJson,
+  onDataChange,
 } from './lib/storage';
+import { autoPull, autoPush, getGistConfig, isAutoSyncReady, saveGistConfig } from './lib/gistSync';
+
+type SyncStatus = 'idle' | 'syncing' | 'synced' | 'error';
+// Re-pull when the app comes back to the foreground, at most this often.
+const RESUME_PULL_MIN_MS = 60_000;
 
 type Tab = 'dashboard' | 'log' | 'forecast' | 'history' | 'settings';
 
@@ -30,9 +36,80 @@ export default function App() {
   const [tab, setTab] = useState<Tab>('dashboard');
   const [activities, setActivities] = useState<Activity[]>(() => getActivities());
 
+  const [syncStatus, setSyncStatus] = useState<SyncStatus>('idle');
+  const [syncError, setSyncError] = useState<string | null>(null);
+
   const refresh = useCallback(() => {
     setActivities(getActivities());
   }, []);
+
+  // Gist auto-sync: pull on open (and on resume), push shortly after any change.
+  const pullDone = useRef(false);
+  const pullOk = useRef(false);
+  const lastPullAt = useRef(0);
+  const pushTimer = useRef<number | undefined>(undefined);
+
+  const runPush = useCallback(async () => {
+    if (!getGistConfig()?.autoSync) return;
+    setSyncStatus('syncing');
+    try {
+      await autoPush();
+      setSyncStatus('synced');
+      setSyncError(null);
+    } catch (e) {
+      setSyncStatus('error');
+      setSyncError(e instanceof Error ? e.message : 'Push failed.');
+    }
+  }, []);
+
+  const runPull = useCallback(async () => {
+    if (!isAutoSyncReady()) {
+      pullDone.current = true;
+      return;
+    }
+    lastPullAt.current = Date.now();
+    setSyncStatus('syncing');
+    try {
+      if (await autoPull()) refresh();
+      pullOk.current = true;
+      setSyncStatus('synced');
+      setSyncError(null);
+    } catch (e) {
+      setSyncStatus('error');
+      setSyncError(e instanceof Error ? e.message : 'Pull failed.');
+    } finally {
+      pullDone.current = true;
+    }
+  }, [refresh]);
+
+  useEffect(() => {
+    runPull();
+
+    const unsubscribe = onDataChange(() => {
+      if (!getGistConfig()?.autoSync) return;
+      saveGistConfig({ pendingPush: true });
+      window.clearTimeout(pushTimer.current);
+      // Wait for the opening pull so we don't push stale data over the Gist;
+      // autoPull merges and pushes pending changes itself.
+      if (!pullDone.current) return;
+      // If the opening pull failed (e.g. offline), pull again first — with a
+      // pending change that merges both sides and pushes, so nothing is lost.
+      pushTimer.current = window.setTimeout(pullOk.current ? runPush : runPull, 800);
+    });
+
+    function handleVisibility() {
+      if (document.visibilityState === 'visible' && Date.now() - lastPullAt.current > RESUME_PULL_MIN_MS) {
+        runPull();
+      }
+    }
+    document.addEventListener('visibilitychange', handleVisibility);
+
+    return () => {
+      unsubscribe();
+      window.clearTimeout(pushTimer.current);
+      document.removeEventListener('visibilitychange', handleVisibility);
+    };
+  }, [runPull, runPush]);
 
   function handleSave(activity: NewActivity) {
     addActivity(activity);
@@ -64,7 +141,19 @@ export default function App() {
   return (
     <div className="min-h-screen flex flex-col bg-neutral-50 dark:bg-neutral-950">
       <header className="sticky top-0 z-10 bg-white/90 dark:bg-neutral-900/90 backdrop-blur border-b border-neutral-200 dark:border-neutral-800 px-4 py-3">
-        <h1 className="text-base font-bold text-neutral-900 dark:text-neutral-50">🏃 Cardio Tracker</h1>
+        <div className="flex items-center justify-between gap-2">
+          <h1 className="text-base font-bold text-neutral-900 dark:text-neutral-50">🏃 Cardio Tracker</h1>
+          {syncStatus !== 'idle' && (
+            <span
+              title={syncError ?? undefined}
+              className={`text-xs ${
+                syncStatus === 'error' ? 'text-red-600 dark:text-red-400' : 'text-neutral-500 dark:text-neutral-400'
+              }`}
+            >
+              {syncStatus === 'syncing' ? 'Syncing…' : syncStatus === 'synced' ? 'Synced ✓' : 'Sync failed'}
+            </span>
+          )}
+        </div>
       </header>
 
       <main className="flex-1 overflow-y-auto">
@@ -80,6 +169,7 @@ export default function App() {
             onRestoreBackup={handleRestore}
             onClearAll={handleClearAll}
             onImportCsv={handleImport}
+            onSynced={refresh}
           />
         )}
       </main>
