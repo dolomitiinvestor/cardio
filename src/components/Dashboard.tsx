@@ -10,6 +10,7 @@ import {
   dailyRollingSeries,
   filterByTypes,
   formatDuration,
+  formatHoursMinutes,
   loadRatioZone,
   maxMonthlyMiles,
   monthlyPaceSummary,
@@ -157,7 +158,7 @@ export default function Dashboard({ activities }: DashboardProps) {
           />
           <StatCard
             label="Hours L7D"
-            value={formatDuration(hoursLast7Days)}
+            value={formatHoursMinutes(hoursLast7Days)}
             sublabel="All cardio types"
           />
         </div>
@@ -190,7 +191,7 @@ export default function Dashboard({ activities }: DashboardProps) {
           <StatCard label="This year" value={`${stats.totalMilesThisYear.toFixed(1)} mi`} />
           <StatCard
             label="Hours this year"
-            value={formatDuration(hoursThisYear)}
+            value={formatHoursMinutes(hoursThisYear)}
             sublabel="All cardio types"
           />
         </div>

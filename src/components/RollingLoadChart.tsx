@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { CartesianGrid, Line, LineChart, Tooltip, XAxis, YAxis } from 'recharts';
+import { formatDecimalHours } from '../lib/stats';
 import type { DailyHoursPoint, DailyLoadPoint } from '../lib/stats';
 
 interface RollingLoadChartProps {
@@ -106,6 +107,7 @@ export default function RollingLoadChart({ mpwData, hoursData }: RollingLoadChar
             width={AXIS_WIDTH}
             domain={[0, axisMax]}
             ticks={yTicks}
+            tickFormatter={metric === 'hours' ? (v: number) => formatDecimalHours(v) : undefined}
           />
           <XAxis dataKey="label" height={X_AXIS_HEIGHT} tick={false} axisLine={false} tickLine={false} />
           {/* Invisible series: recharts won't generate y-axis ticks for a chart with zero graphical children. */}
@@ -131,7 +133,7 @@ export default function RollingLoadChart({ mpwData, hoursData }: RollingLoadChar
             <YAxis hide domain={[0, axisMax]} ticks={yTicks} />
             <Tooltip
               formatter={(value, name) => [
-                `${value} ${unit}`,
+                metric === 'hours' ? `${formatDecimalHours(Number(value))} ${unit}` : `${value} ${unit}`,
                 name === 'acute7' ? acuteLabel : chronicLabel,
               ]}
               contentStyle={{ fontSize: 12, borderRadius: 8 }}
@@ -228,13 +230,13 @@ function HoursLoadTable({ data }: { data: DailyHoursPoint[] }) {
             >
               <td className="px-2 py-1.5 text-neutral-700 dark:text-neutral-300">{row.label}</td>
               <td className="px-2 py-1.5 text-right text-neutral-900 dark:text-neutral-50">
-                {row.hours.toFixed(1)}
+                {formatDecimalHours(row.hours)}
               </td>
               <td className="px-2 py-1.5 text-right text-neutral-500 dark:text-neutral-400">
-                {row.acute7Hours.toFixed(1)}
+                {formatDecimalHours(row.acute7Hours)}
               </td>
               <td className="px-2 py-1.5 text-right text-neutral-500 dark:text-neutral-400">
-                {row.chronic28Hours.toFixed(1)}
+                {formatDecimalHours(row.chronic28Hours)}
               </td>
             </tr>
           ))}

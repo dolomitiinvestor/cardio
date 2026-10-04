@@ -353,6 +353,19 @@ export function formatDuration(totalSeconds: number): string {
   return `${s}s`;
 }
 
+/** Formats a duration as H:MM, e.g. 5400s -> "1:30". */
+export function formatHoursMinutes(totalSeconds: number): string {
+  const totalMinutes = Math.round(totalSeconds / 60);
+  const h = Math.floor(totalMinutes / 60);
+  const m = totalMinutes % 60;
+  return `${h}:${String(m).padStart(2, '0')}`;
+}
+
+/** Formats decimal hours as H:MM, e.g. 1.5 -> "1:30". */
+export function formatDecimalHours(hours: number): string {
+  return formatHoursMinutes(hours * 3600);
+}
+
 export function daysSince(dateStr: string, referenceDate = new Date()): number {
   return differenceInCalendarDays(referenceDate, toDate(dateStr));
 }
@@ -554,9 +567,10 @@ export function dailyRollingHoursSeries(
     points.push({
       date: format(day, 'yyyy-MM-dd'),
       label: format(day, 'MMM d'),
-      hours: Math.round((daySeconds / 3600) * 10) / 10,
-      acute7Hours: Math.round((acute7Seconds / 3600) * 10) / 10,
-      chronic28Hours: Math.round((chronic28Seconds / 3600 / 4) * 10) / 10,
+      // Rounded to the nearest minute so they display cleanly as H:MM.
+      hours: Math.round(daySeconds / 60) / 60,
+      acute7Hours: Math.round(acute7Seconds / 60) / 60,
+      chronic28Hours: Math.round(chronic28Seconds / 60 / 4) / 60,
     });
   }
   return points;
