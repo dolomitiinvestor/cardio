@@ -2,7 +2,15 @@ import { useRef, useState } from 'react';
 import type { ColumnMapping, ParsedCsv } from '../lib/csvImport';
 import { buildActivitiesFromRows, guessMapping, parseCsvFile } from '../lib/csvImport';
 import type { NewActivity } from '../lib/types';
-import { clearGistConfig, getGistConfig, pullFromGist, pushToGist, saveGistConfig } from '../lib/gistSync';
+import {
+  clearGistConfig,
+  disableAutoSync,
+  enableAutoSync,
+  getGistConfig,
+  pullFromGist,
+  pushToGist,
+  saveGistConfig,
+} from '../lib/gistSync';
 
 interface SettingsViewProps {
   activityCount: number;
@@ -11,6 +19,7 @@ interface SettingsViewProps {
   onRestoreBackup: (json: string) => void;
   onClearAll: () => void;
   onImportCsv: (activities: NewActivity[]) => { added: number; skipped: number };
+  onSynced: () => void;
 }
 
 export default function SettingsView({
@@ -20,6 +29,7 @@ export default function SettingsView({
   onRestoreBackup,
   onClearAll,
   onImportCsv,
+  onSynced,
 }: SettingsViewProps) {
   const backupFileInputRef = useRef<HTMLInputElement>(null);
   const [message, setMessage] = useState<string | null>(null);
@@ -35,7 +45,8 @@ export default function SettingsView({
   const [gistToken, setGistToken] = useState(gistConfig?.token ?? '');
   const [gistId, setGistId] = useState(gistConfig?.gistId ?? '');
   const [lastSyncedAt, setLastSyncedAt] = useState<string | null>(gistConfig?.lastSyncedAt ?? null);
-  const [gistBusy, setGistBusy] = useState<'push' | 'pull' | null>(null);
+  const [autoSync, setAutoSync] = useState(gistConfig?.autoSync ?? false);
+  const [gistBusy, setGistBusy] = useState<'push' | 'pull' | 'auto' | null>(null);
   const [gistError, setGistError] = useState<string | null>(null);
   const [gistMessage, setGistMessage] = useState<string | null>(null);
   const [confirmPull, setConfirmPull] = useState(false);
@@ -148,8 +159,38 @@ export default function SettingsView({
     }
   }
 
+  async function handleToggleAutoSync() {
+    setGistError(null);
+    setGistMessage(null);
+    if (autoSync) {
+      disableAutoSync();
+      setAutoSync(false);
+      setGistMessage('Auto-sync off.');
+      return;
+    }
+    const token = gistToken.trim();
+    if (!token) {
+      setGistError('Paste a GitHub token first.');
+      return;
+    }
+    setGistBusy('auto');
+    try {
+      const id = await enableAutoSync(token, gistId.trim());
+      setGistId(id);
+      setLastSyncedAt(getGistConfig()?.lastSyncedAt ?? null);
+      setAutoSync(true);
+      onSynced();
+      setGistMessage('Auto-sync on. Merged this device with the Gist.');
+    } catch (e) {
+      setGistError(e instanceof Error ? e.message : 'Could not turn on auto-sync.');
+    } finally {
+      setGistBusy(null);
+    }
+  }
+
   function handleForgetGistConfig() {
     clearGistConfig();
+    setAutoSync(false);
     setGistToken('');
     setGistId('');
     setLastSyncedAt(null);
@@ -351,6 +392,33 @@ export default function SettingsView({
             className="rounded-lg border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-3 py-2 text-sm"
           />
         </label>
+
+        <div className="flex items-center justify-between gap-3 rounded-lg border border-neutral-200 dark:border-neutral-800 p-3">
+          <div className="flex flex-col gap-0.5">
+            <span className="text-sm font-medium text-neutral-900 dark:text-neutral-50">Auto-sync</span>
+            <span className="text-xs text-neutral-500 dark:text-neutral-400">
+              Pull from the Gist when the app opens; push after every log, edit or delete.
+            </span>
+          </div>
+          <button
+            type="button"
+            role="switch"
+            aria-checked={autoSync}
+            aria-label="Auto-sync"
+            onClick={handleToggleAutoSync}
+            disabled={gistBusy !== null}
+            className={`relative shrink-0 h-7 w-12 rounded-full transition-colors disabled:opacity-50 ${
+              autoSync ? 'bg-violet-600' : 'bg-neutral-300 dark:bg-neutral-700'
+            }`}
+          >
+            <span
+              className={`absolute top-0.5 left-0.5 h-6 w-6 rounded-full bg-white shadow transition-transform ${
+                autoSync ? 'translate-x-5' : ''
+              }`}
+            />
+          </button>
+        </div>
+        {gistBusy === 'auto' && <p className="text-xs text-neutral-500 dark:text-neutral-400">Turning on auto-sync…</p>}
 
         <div className="flex gap-2">
           <button
